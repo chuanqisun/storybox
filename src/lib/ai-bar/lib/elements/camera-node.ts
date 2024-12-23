@@ -55,6 +55,9 @@ export class CameraNode extends HTMLElement {
       const constraints = {
         video: {
           deviceId: deviceId ? { exact: deviceId } : undefined,
+          frameRate: { ideal: 1, max: 1 },
+          width: { min: 400, ideal: 600, max: 800 },
+          height: { min: 400, ideal: 600, max: 800 },
         },
       };
       this.stream = await navigator.mediaDevices.getUserMedia(constraints);

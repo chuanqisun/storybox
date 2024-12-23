@@ -1,6 +1,6 @@
-import { debounceTime, filter, fromEvent, map, switchMap, tap } from "rxjs";
+import { debounceTime, filter, fromEvent, map, Observable, switchMap, tap } from "rxjs";
 import { CameraNode } from "./lib/ai-bar/lib/elements/camera-node";
-import { LlmNode } from "./lib/ai-bar/lib/elements/llm-node";
+import type { LlmNode } from "./lib/ai-bar/lib/elements/llm-node";
 import { OpenAIRealtimeNode } from "./lib/ai-bar/lib/elements/openai-realtime-node";
 import { system } from "./lib/ai-bar/lib/message";
 import { loadAIBar } from "./lib/ai-bar/loader";
@@ -65,31 +65,47 @@ const globalClick$ = fromEvent(document, "click").pipe(
 
 const vision$ = fromEvent(cameraNode, "framechange").pipe(
   debounceTime(1000),
-  switchMap(async () => {
-    const frame = cameraNode.capture();
-    debugCapture.src = frame;
-    const llm = $<LlmNode>("llm-node")!;
-    const aoai = llm.getClient("openai");
-    const response = await aoai.chat.completions.create({
-      messages: [
-        system`Describe the image in one brief sentence. Focus on objects in the foreground.`,
-        {
-          role: "user",
-          content: [
-            {
-              type: "image_url",
-              image_url: {
-                url: frame,
+  switchMap(() => {
+    return new Observable((subscriber) => {
+      const frame = cameraNode.capture();
+      debugCapture.src = frame;
+      const llm = $<LlmNode>("llm-node")!;
+      const aoai = llm.getClient("openai");
+      const abortController = new AbortController();
+      const response = aoai.chat.completions
+        .create(
+          {
+            messages: [
+              system`Describe the image in one brief sentence. Focus on objects in the foreground.`,
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "image_url",
+                    image_url: {
+                      url: frame,
+                    },
+                  },
+                ],
               },
-            },
-          ],
-        },
-      ],
-      model: "gpt-4o-mini",
-    });
+            ],
+            model: "gpt-4o-mini",
+          },
+          {
+            signal: abortController.signal,
+          },
+        )
+        .then((response) => {
+          const description = response.choices[0].message.content;
+          console.log("latest summary", description);
+          subscriber.next(description);
+        })
+        .catch();
 
-    const description = response.choices[0].message.content;
-    console.log(description);
+      return () => {
+        abortController.abort();
+      };
+    });
   }),
 );
 

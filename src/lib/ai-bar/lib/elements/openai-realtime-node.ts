@@ -32,7 +32,6 @@ export class OpenAIRealtimeNode extends HTMLElement {
   } = {};
 
   private sessionTools: ParsedTool[] = [];
-
   private draftToos: Tool<any>[] = [];
 
   static defineTool<T extends OpenAICompatibleSchema>(tool: Tool<T>) {
@@ -46,28 +45,26 @@ export class OpenAIRealtimeNode extends HTMLElement {
     // handle function calling
     dc.addEventListener("message", async (e) => {
       const data = JSON.parse(e.data);
-      const type = data.type;
 
-      if (type === "response.done") {
-        if (data.type === "response.done") {
-          const functionCall = data.response?.output?.at(0);
-          if (functionCall) {
-            const { status, name, type, call_id } = functionCall;
-            if (type === "function_call" && status === "completed") {
-              const tool = this.sessionTools.find((tool) => tool.name === name);
-              if (!tool) return;
+      if (data.type === "response.done") {
+        const responseOutput = data.response?.output?.at(0);
+        if (responseOutput) {
+          const { status, name, type, call_id } = responseOutput;
+          if (type === "function_call" && status === "completed") {
+            const tool = this.sessionTools.find((tool) => tool.name === name);
+            if (!tool) return;
 
-              console.log(`[realtime] tool called ${tool.name}`);
+            console.log(`[realtime] tool called ${tool.name}`);
 
-              try {
-                const parsedArgs = tool.format?.$parseRaw(functionCall.arguments) ?? JSON.parse(functionCall.arguments);
-                const output = await tool.run(parsedArgs);
+            try {
+              const parsedArgs =
+                tool.format?.$parseRaw(responseOutput.arguments) ?? JSON.parse(responseOutput.arguments);
+              const output = await tool.run(parsedArgs);
 
-                this.replyFunctionCall(call_id, output).createResponse();
-              } catch (e) {
-                const errorMessage = [(e as any).name, (e as any).message].filter(Boolean).join(" ");
-                this.replyFunctionCall(call_id, errorMessage).createResponse();
-              }
+              this.replyFunctionCall(call_id, output).createResponse();
+            } catch (e) {
+              const errorMessage = [(e as any).name, (e as any).message].filter(Boolean).join(" ");
+              this.replyFunctionCall(call_id, errorMessage).createResponse();
             }
           }
         }
