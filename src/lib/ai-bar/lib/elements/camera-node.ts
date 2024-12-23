@@ -10,7 +10,7 @@ export class CameraNode extends HTMLElement {
   private canvasContext: CanvasRenderingContext2D;
   private referenceFrame: ImageData | null = null;
   private colorDistanceThreshold: number = 30;
-  private changeThreshold: number = 0.02;
+  private changeThreshold: number = 0.05;
   private dynamicScanDebounce = 400;
   private fixedScanInterval = 3000;
 

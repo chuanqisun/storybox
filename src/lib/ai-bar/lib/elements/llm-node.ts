@@ -1,4 +1,4 @@
-import { AzureOpenAI } from "openai";
+import OpenAI, { AzureOpenAI } from "openai";
 import type { ChatCompletionMessageParam, ChatCompletionTool } from "openai/resources/index.mjs";
 import type { AIBar, LlmProvider } from "../ai-bar";
 import { emit } from "../events";
@@ -114,18 +114,27 @@ export class LlmNode extends HTMLElement implements LlmProvider {
     this.activeSystemMessage = text;
   }
 
-  public getClient() {
+  public getClient(provider: "aoai" | "openai" = "aoai") {
     const credentials = this.closest<AIBar>("ai-bar")?.getAzureConnection();
     if (!credentials)
       throw new Error("Unable to get credentials from the closest <ai-bar>. Did you forget to provide them?");
-    const openai = new AzureOpenAI({
-      endpoint: credentials.aoaiEndpoint,
-      apiKey: credentials.aoaiKey,
-      apiVersion: "2024-10-21",
-      dangerouslyAllowBrowser: true,
-    });
+    if (provider === "aoai") {
+      const openai = new AzureOpenAI({
+        endpoint: credentials.aoaiEndpoint,
+        apiKey: credentials.aoaiKey,
+        apiVersion: "2024-10-21",
+        dangerouslyAllowBrowser: true,
+      });
 
-    return openai;
+      return openai;
+    } else {
+      const openai = new OpenAI({
+        apiKey: credentials.openaiKey,
+        dangerouslyAllowBrowser: true,
+      });
+
+      return openai;
+    }
   }
 
   public async submit(text: string) {
