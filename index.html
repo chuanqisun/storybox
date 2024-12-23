@@ -10,13 +10,18 @@
   <body>
     <div>
       <button data-action="connect">Connect</button>
+      <button data-action="mute">Mute</button>
+      <button data-action="enable-camera">Enable camera</button>
     </div>
+    <canvas id="debug-canvas"></canvas>
+    <img id="debug-capture" />
     <ai-bar auto-hide>
       <!-- <stt-node></stt-node> -->
       <azure-stt-node></azure-stt-node>
       <llm-node></llm-node>
       <azure-tts-node></azure-tts-node>
       <azure-dalle-node></azure-dalle-node>
+      <camera-node canvas="debug-canvas"></camera-node>
       <openai-realtime-node></openai-realtime-node>
       <drag-handle></drag-handle>
       <hide-bar></hide-bar>

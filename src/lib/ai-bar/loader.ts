@@ -3,6 +3,7 @@ import { defineAzureConnection } from "./lib/elements/azure-connection";
 import { defineAzureDalleNode } from "./lib/elements/azure-dalle-node";
 import { defineAzureSttNode } from "./lib/elements/azure-stt-node";
 import { defineAzureTtsNode } from "./lib/elements/azure-tts-node";
+import { defineCameraNode } from "./lib/elements/camera-node";
 import { defineDragHandle } from "./lib/elements/drag-handle";
 import { defineElevenLabsTtsNode } from "./lib/elements/eleven-labs-tts-node";
 import { defineGestureControl } from "./lib/elements/gesture-control";
@@ -25,6 +26,7 @@ export function loadAIBar() {
   defineAzureDalleNode();
   defineAzureSttNode();
   defineAzureTtsNode();
+  defineCameraNode();
   defineDragHandle();
   defineElevenLabsTtsNode();
   defineGestureControl();
