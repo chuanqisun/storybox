@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.21.0",
     "@streamparser/json": "^0.0.21",
     "openai": "^4.77.0",
     "prettier": "^3.4.2",

@@ -1,4 +1,4 @@
-import { debounceTime, merge, startWith, Subject, Subscription, throttleTime } from "rxjs";
+import { debounceTime, startWith, Subject, Subscription } from "rxjs";
 
 export function defineCameraNode() {
   customElements.define("camera-node", CameraNode);
@@ -9,10 +9,9 @@ export class CameraNode extends HTMLElement {
   private canvasElement: HTMLCanvasElement;
   private canvasContext: CanvasRenderingContext2D;
   private referenceFrame: ImageData | null = null;
-  private colorDistanceThreshold: number = 30;
+  private colorDistanceThreshold: number = 20;
   private changeThreshold: number = 0.05;
-  private dynamicScanDebounce = 400;
-  private fixedScanInterval = 3000;
+  private dynamicScanDebounce = 500;
 
   private stream: MediaStream | null = null;
 
@@ -55,9 +54,9 @@ export class CameraNode extends HTMLElement {
       const constraints = {
         video: {
           deviceId: deviceId ? { exact: deviceId } : undefined,
-          frameRate: { ideal: 1, max: 1 },
-          width: { min: 400, ideal: 600, max: 800 },
-          height: { min: 400, ideal: 600, max: 800 },
+          frameRate: { ideal: 10, max: 10 },
+          width: { min: 400, ideal: 400, max: 600 },
+          height: { min: 400, ideal: 400, max: 600 },
         },
       };
       this.stream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -65,15 +64,12 @@ export class CameraNode extends HTMLElement {
 
       this.videoElement.addEventListener("play", this.processFrame.bind(this));
 
-      const fixedScan = this.diffStream$.pipe(throttleTime(this.fixedScanInterval, undefined, { trailing: true }));
-      const debouncedScan = this.diffStream$.pipe(startWith(1), debounceTime(this.dynamicScanDebounce));
+      const debouncedScan = this.diffStream$.pipe(debounceTime(this.dynamicScanDebounce), startWith(1));
 
-      this.diffStreamSub = merge(fixedScan, debouncedScan)
-        .pipe(throttleTime(1000, undefined, { trailing: true }))
-        .subscribe((diffPercentage) => {
-          this.dispatchEvent(new Event("framechange"));
-          console.log(`Debounced significant change detected: ${diffPercentage * 100}% of pixels differ.`);
-        });
+      debouncedScan.subscribe((diffPercentage) => {
+        this.dispatchEvent(new Event("framechange"));
+        console.log(`Debounced significant change detected: ${diffPercentage * 100}% of pixels differ.`);
+      });
     } catch (error) {
       console.error("Error accessing webcam:", error);
     }

@@ -43,6 +43,9 @@ export class AoaiConnectionButton extends HTMLElement implements AzureConnection
       <label for="openai-key">OpenAI Key</label>
       <input type="password" id="openai-key" name="openai-key" />
 
+      <label for="googleai-key">Google AI Key</label>
+      <input type="password" id="googleai-key" name="googleai-key" />
+
       <label for="speech-region">Speech region</label>
       <input type="text" id="speech-region" name="speech-region" placeholder="eastus" />
 
@@ -100,6 +103,7 @@ export class AoaiConnectionButton extends HTMLElement implements AzureConnection
     const aoaiDeploymentName = this.shadowRoot.querySelector<HTMLInputElement>("#aoai-deployment-name")!.value;
     const aoaiKey = this.shadowRoot.querySelector<HTMLInputElement>("#aoai-key")!.value;
     const openaiKey = this.shadowRoot.querySelector<HTMLInputElement>("#openai-key")!.value;
+    const googleAIKey = this.shadowRoot.querySelector<HTMLInputElement>("#googleai-key")!.value;
     const mapKey = this.shadowRoot.querySelector<HTMLInputElement>("#map-key")!.value;
     const speechRegion = this.shadowRoot.querySelector<HTMLInputElement>("#speech-region")!.value;
     const speechKey = this.shadowRoot.querySelector<HTMLInputElement>("#speech-key")!.value;
@@ -113,6 +117,7 @@ export class AoaiConnectionButton extends HTMLElement implements AzureConnection
       aoaiEndpoint,
       aoaiDeploymentName,
       aoaiKey,
+      googleAIKey,
       openaiKey,
       speechRegion,
       speechKey,
