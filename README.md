@@ -1,3 +1,3 @@
-# Hollywood
+# Storybox
 
-Storyboarding with AI
+Tangible Stories
