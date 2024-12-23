@@ -36,6 +36,7 @@ export interface AzureConnectionProvider extends HTMLElement {
     aoaiEndpoint: string;
     aoaiDeploymentName: string;
     aoaiKey: string;
+    openaiKey: string;
     elevenLabsKey: string;
     mapKey: string;
     speechRegion: string;

@@ -8,6 +8,7 @@ import { defineElevenLabsTtsNode } from "./lib/elements/eleven-labs-tts-node";
 import { defineGestureControl } from "./lib/elements/gesture-control";
 import { defineHideBar } from "./lib/elements/hide-bar";
 import { defineLlmNode } from "./lib/elements/llm-node";
+import { defineOpenAIRealtimeNode } from "./lib/elements/openai-realtime-node";
 import { defineScreenCapture } from "./lib/elements/screen-capture";
 import { defineSttNode } from "./lib/elements/stt-node";
 import { defineTextChat } from "./lib/elements/text-chat";
@@ -20,20 +21,21 @@ export function loadAIBar() {
     return;
   }
 
-  defineTextChat();
-  defineDragHandle();
   defineAzureConnection();
-  defineAzureTtsNode();
+  defineAzureDalleNode();
   defineAzureSttNode();
+  defineAzureTtsNode();
+  defineDragHandle();
+  defineElevenLabsTtsNode();
+  defineGestureControl();
   defineHideBar();
   defineLlmNode();
-  defineTtsNode();
+  defineOpenAIRealtimeNode();
   defineScreenCapture();
   defineSttNode();
+  defineTextChat();
+  defineTtsNode();
   defineWalkieTalkieButton();
-  defineGestureControl();
-  defineElevenLabsTtsNode();
-  defineAzureDalleNode();
 
   defineAIBar();
 }
