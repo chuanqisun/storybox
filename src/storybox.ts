@@ -5,6 +5,7 @@ import { OpenAIRealtimeNode } from "./lib/ai-bar/lib/elements/openai-realtime-no
 import type { TogetherAINode } from "./lib/ai-bar/lib/elements/together-ai-node";
 import { loadAIBar } from "./lib/ai-bar/loader";
 import { $, parseActionEvent } from "./lib/dom";
+import { StoryEngine } from "./story-engine/state";
 import { getVision } from "./story-engine/vision";
 import "./storybox.css";
 
@@ -21,6 +22,8 @@ const debugCaption = $<HTMLElement>("#debug-caption")!;
 const debugOutput = $<HTMLImageElement>("#debug-output")!;
 const captionStatus = $<HTMLElement>("#caption-status")!;
 
+const storyEngine = new StoryEngine();
+
 const globalClick$ = fromEvent(document, "click").pipe(
   map(parseActionEvent),
   filter((e) => e.action !== null),
@@ -29,6 +32,7 @@ const globalClick$ = fromEvent(document, "click").pipe(
       case "connect": {
         connectButton.textContent = "Connecting...";
         await realtime.start();
+        storyEngine.start();
         connectButton.textContent = "Disconnect";
         connectButton.dataset.action = "disconnect";
         break;
@@ -36,6 +40,7 @@ const globalClick$ = fromEvent(document, "click").pipe(
       case "disconnect": {
         connectButton.textContent = "Connect";
         connectButton.dataset.action = "connect";
+        storyEngine.stop();
         await realtime.stop();
         break;
       }
@@ -68,18 +73,18 @@ const globalClick$ = fromEvent(document, "click").pipe(
   }),
 );
 
-const { vision$, pendingDescriptionCount$ } = getVision();
+const { vision$, stableVision$, pendingDescriptionCount$ } = getVision();
 
-const visualize$ = vision$.pipe(
+const visualize$ = stableVision$.pipe(
   tap((state) => {
     debugCaption.textContent = state.description;
   }),
   switchMap(async (state) => {
-    const dataUrl = await togetherAINode.generateImageDataURL(
-      state.description +
-        ` Render in Needle felted miniature scene. The color palette is muted and pastel, featuring various shades of orange, pink, green, and teal. The lighting is soft and diffused, creating a gentle, whimsical atmosphere. The overall style is reminiscent of children's book illustration, with a focus on texture and detail. The rendering is highly detailed, with a focus on the texture of the felt and the three-dimensionality of the miniature elements.  The scene is highly saturated, but the colors are soft and not harsh. The overall feel is cozy and inviting.`,
-    );
-    debugOutput.src = dataUrl;
+    // const dataUrl = await togetherAINode.generateImageDataURL(
+    //   state.description +
+    //     ` Render in Needle felted miniature scene. The color palette is muted and pastel, featuring various shades of orange, pink, green, and teal. The lighting is soft and diffused, creating a gentle, whimsical atmosphere. The overall style is reminiscent of children's book illustration, with a focus on texture and detail. The rendering is highly detailed, with a focus on the texture of the felt and the three-dimensionality of the miniature elements.  The scene is highly saturated, but the colors are soft and not harsh. The overall feel is cozy and inviting.`,
+    // );
+    // debugOutput.src = dataUrl;
   }),
 );
 

@@ -7,7 +7,7 @@ export type Tool<T extends OpenAICompatibleSchema> = {
   name: string;
   description: string;
   parameters: T;
-  /** use may provide hand written json schema to override parameters */
+  /** use may provide hand written json schema. Parameters will be ignored when schema is present */
   schema?: Record<string, any>;
   run: (parsedArgs: z.infer<T>) => string | Promise<string>;
 };

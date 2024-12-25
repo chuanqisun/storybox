@@ -1,4 +1,15 @@
-import { BehaviorSubject, distinctUntilChanged, fromEvent, mergeMap, Observable, scan } from "rxjs";
+import {
+  BehaviorSubject,
+  combineLatest,
+  distinctUntilChanged,
+  filter,
+  fromEvent,
+  map,
+  mergeMap,
+  Observable,
+  scan,
+  share,
+} from "rxjs";
 import type { CameraNode } from "../lib/ai-bar/lib/elements/camera-node";
 import type { LlmNode } from "../lib/ai-bar/lib/elements/llm-node";
 import { system } from "../lib/ai-bar/lib/message";
@@ -82,10 +93,19 @@ export function getVision() {
       },
     ),
     distinctUntilChanged((prev, curr) => prev.description === curr.description),
+    share(),
+  );
+
+  // the lastest vision when pendingCount = 0
+  const stableVision$ = combineLatest([vision$, pendingDescriptionCount$]).pipe(
+    filter(([, pendingCount]) => pendingCount === 0),
+    map(([vision]) => vision),
+    share(),
   );
 
   return {
     vision$,
-    pendingDescriptionCount$,
+    stableVision$,
+    pendingDescriptionCount$: pendingDescriptionCount$.asObservable().pipe(share()),
   };
 }
