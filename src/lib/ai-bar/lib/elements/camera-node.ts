@@ -1,4 +1,4 @@
-import { debounceTime, startWith, Subject, Subscription } from "rxjs";
+import { debounceTime, Subject, Subscription } from "rxjs";
 
 export function defineCameraNode() {
   customElements.define("camera-node", CameraNode);
@@ -9,9 +9,9 @@ export class CameraNode extends HTMLElement {
   private canvasElement: HTMLCanvasElement;
   private canvasContext: CanvasRenderingContext2D;
   private referenceFrame: ImageData | null = null;
-  private colorDistanceThreshold: number = 20;
-  private changeThreshold: number = 0.05;
-  private dynamicScanDebounce = 500;
+  private colorDistanceThreshold: number = 30;
+  private changeThreshold: number = 0.02;
+  private dynamicScanDebounce = 200;
 
   private stream: MediaStream | null = null;
 
@@ -23,9 +23,17 @@ export class CameraNode extends HTMLElement {
     this.attachShadow({ mode: "open" });
 
     // Create video and canvas elements
-    this.videoElement = document.createElement("video");
+    const externalVideo = this.getAttribute("video")
+      ? (document.getElementById(this.getAttribute("video")!) as HTMLVideoElement)
+      : null;
+
+    this.videoElement = externalVideo ?? document.createElement("video");
     this.videoElement.autoplay = true;
-    this.videoElement.style.display = "none";
+
+    if (!externalVideo) {
+      this.videoElement.style.display = "none";
+      this.shadowRoot!.append(this.videoElement);
+    }
 
     const externalCanvas = this.getAttribute("canvas")
       ? (document.getElementById(this.getAttribute("canvas")!) as HTMLCanvasElement)
@@ -33,9 +41,8 @@ export class CameraNode extends HTMLElement {
     this.canvasElement = externalCanvas ?? document.createElement("canvas");
     this.canvasContext = this.canvasElement.getContext("2d")!;
 
-    // Append elements to shadow DOM
     if (!externalCanvas) {
-      this.shadowRoot!.append(this.videoElement, this.canvasElement);
+      this.shadowRoot!.append(this.canvasElement);
     }
   }
 
@@ -54,9 +61,8 @@ export class CameraNode extends HTMLElement {
       const constraints = {
         video: {
           deviceId: deviceId ? { exact: deviceId } : undefined,
-          frameRate: { ideal: 10, max: 10 },
-          width: { min: 400, ideal: 400, max: 600 },
-          height: { min: 400, ideal: 400, max: 600 },
+          width: { min: 200, ideal: 400 },
+          height: { min: 200, ideal: 400 },
         },
       };
       this.stream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -64,7 +70,7 @@ export class CameraNode extends HTMLElement {
 
       this.videoElement.addEventListener("play", this.processFrame.bind(this));
 
-      const debouncedScan = this.diffStream$.pipe(debounceTime(this.dynamicScanDebounce), startWith(1));
+      const debouncedScan = this.diffStream$.pipe(debounceTime(this.dynamicScanDebounce));
 
       debouncedScan.subscribe((diffPercentage) => {
         this.dispatchEvent(new Event("framechange"));
@@ -86,7 +92,7 @@ export class CameraNode extends HTMLElement {
   capture(): string {
     if (this.videoElement.videoWidth && this.videoElement.videoHeight) {
       this.canvasContext.drawImage(this.videoElement, 0, 0, this.canvasElement.width, this.canvasElement.height);
-      return this.canvasElement.toDataURL("image/png");
+      return this.canvasElement.toDataURL("image/jpeg");
     }
     return "";
   }

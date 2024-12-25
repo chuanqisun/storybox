@@ -1,4 +1,3 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { filter, fromEvent, map, tap } from "rxjs";
 import { AIBar } from "./lib/ai-bar/lib/ai-bar";
 import { CameraNode } from "./lib/ai-bar/lib/elements/camera-node";
@@ -16,20 +15,6 @@ const connectButton = $<HTMLButtonElement>(`button[data-action="connect"]`)!;
 const muteButton = $<HTMLButtonElement>(`button[data-action="mute"]`)!;
 const cameraButton = $<HTMLButtonElement>(`button[data-action="enable-camera"]`)!;
 const cameraNode = $<CameraNode>("camera-node")!;
-
-const { googleAIKey } = aiBar.getAzureConnection();
-const genAI = new GoogleGenerativeAI(googleAIKey);
-const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
-const chatSession = model.startChat({
-  generationConfig: {
-    temperature: 1,
-    topP: 0.95,
-    topK: 40,
-    maxOutputTokens: 8192,
-    responseMimeType: "text/plain",
-  },
-  history: [],
-});
 
 const globalClick$ = fromEvent(document, "click").pipe(
   map(parseActionEvent),

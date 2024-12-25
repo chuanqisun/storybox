@@ -13,6 +13,7 @@ import { defineOpenAIRealtimeNode } from "./lib/elements/openai-realtime-node";
 import { defineScreenCapture } from "./lib/elements/screen-capture";
 import { defineSttNode } from "./lib/elements/stt-node";
 import { defineTextChat } from "./lib/elements/text-chat";
+import { defineTogetherAINode } from "./lib/elements/together-ai-node";
 import { defineTtsNode } from "./lib/elements/tts-node";
 import { defineWalkieTalkieButton } from "./lib/elements/walkie-talkie-button";
 
@@ -35,6 +36,7 @@ export function loadAIBar() {
   defineOpenAIRealtimeNode();
   defineScreenCapture();
   defineSttNode();
+  defineTogetherAINode();
   defineTextChat();
   defineTtsNode();
   defineWalkieTalkieButton();

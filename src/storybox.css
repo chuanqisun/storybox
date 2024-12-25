@@ -82,3 +82,27 @@ body {
 .app-layout {
   display: grid;
 }
+
+.debug-layout {
+  display: grid;
+  grid-auto-flow: column;
+  justify-content: start;
+  position: relative;
+
+  img,
+  video,
+  canvas {
+    border: 1px solid black;
+    width: 400px;
+    height: 400px;
+  }
+
+  #debug-video {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100px;
+    height: 100px;
+    border: 1px solid red;
+  }
+}

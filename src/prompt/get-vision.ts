@@ -1,6 +1,7 @@
-import { BehaviorSubject, debounceTime, distinctUntilChanged, fromEvent, mergeMap, Observable, scan, tap } from "rxjs";
+import { BehaviorSubject, distinctUntilChanged, fromEvent, mergeMap, Observable, scan, switchMap, tap } from "rxjs";
 import type { CameraNode } from "../lib/ai-bar/lib/elements/camera-node";
 import type { LlmNode } from "../lib/ai-bar/lib/elements/llm-node";
+import { TogetherAINode } from "../lib/ai-bar/lib/elements/together-ai-node";
 import { system } from "../lib/ai-bar/lib/message";
 import { $ } from "../lib/dom";
 
@@ -9,9 +10,10 @@ export function getVision() {
   const cameraNode = $<CameraNode>("camera-node")!;
   const debugCapture = $<HTMLImageElement>("#debug-capture")!;
   const debugCaption = $<HTMLElement>("#debug-caption")!;
+  const debugOutput = $<HTMLImageElement>("#debug-output")!;
 
   const vision$ = fromEvent(cameraNode, "framechange").pipe(
-    debounceTime(1000),
+    // debounceTime(1000), // TODO remove
     mergeMap(() => {
       return new Observable<{
         startedAt: number;
@@ -87,6 +89,11 @@ export function getVision() {
     distinctUntilChanged((prev, curr) => prev.description === curr.description),
     tap((state) => {
       debugCaption.textContent = state.description;
+    }),
+    switchMap(async (state) => {
+      const togetherAINode = $<TogetherAINode>("together-ai-node")!;
+      const dataUrl = await togetherAINode.generateImageDataURL(state.description);
+      debugOutput.src = dataUrl;
     }),
   );
 

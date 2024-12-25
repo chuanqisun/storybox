@@ -55,6 +55,10 @@ export class AoaiConnectionButton extends HTMLElement implements AzureConnection
       <label for="eleven-labs-key">ElevenLabs key</label>
       <input type="password" id="eleven-labs-key" name="eleven-labs-key" />
 
+
+      <label for="together-ai-key">TogetherAI key</label>
+      <input type="password" id="together-ai-key" name="together-ai-key" />
+
       <label for="map-key">Azure Map Key</label>
       <input type="password" id="map-key" name="map-key" />
 
@@ -103,6 +107,7 @@ export class AoaiConnectionButton extends HTMLElement implements AzureConnection
     const aoaiDeploymentName = this.shadowRoot.querySelector<HTMLInputElement>("#aoai-deployment-name")!.value;
     const aoaiKey = this.shadowRoot.querySelector<HTMLInputElement>("#aoai-key")!.value;
     const openaiKey = this.shadowRoot.querySelector<HTMLInputElement>("#openai-key")!.value;
+    const togetherAIKey = this.shadowRoot.querySelector<HTMLInputElement>("#together-ai-key")!.value;
     const googleAIKey = this.shadowRoot.querySelector<HTMLInputElement>("#googleai-key")!.value;
     const mapKey = this.shadowRoot.querySelector<HTMLInputElement>("#map-key")!.value;
     const speechRegion = this.shadowRoot.querySelector<HTMLInputElement>("#speech-region")!.value;
@@ -118,6 +123,7 @@ export class AoaiConnectionButton extends HTMLElement implements AzureConnection
       aoaiDeploymentName,
       aoaiKey,
       googleAIKey,
+      togetherAIKey,
       openaiKey,
       speechRegion,
       speechKey,
