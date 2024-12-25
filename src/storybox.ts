@@ -1,4 +1,4 @@
-import { filter, fromEvent, map, switchMap, tap } from "rxjs";
+import { filter, fromEvent, map, tap } from "rxjs";
 import { AIBar } from "./lib/ai-bar/lib/ai-bar";
 import { CameraNode } from "./lib/ai-bar/lib/elements/camera-node";
 import { OpenAIRealtimeNode } from "./lib/ai-bar/lib/elements/openai-realtime-node";
@@ -19,7 +19,7 @@ const cameraButton = $<HTMLButtonElement>(`button[data-action="enable-camera"]`)
 const cameraNode = $<CameraNode>("camera-node")!;
 const togetherAINode = $<TogetherAINode>("together-ai-node")!;
 const debugCaption = $<HTMLElement>("#debug-caption")!;
-const debugOutput = $<HTMLImageElement>("#debug-output")!;
+const visualOutput = $<HTMLImageElement>("#visual-output")!;
 const captionStatus = $<HTMLElement>("#caption-status")!;
 
 const storyEngine = new StoryEngine();
@@ -73,20 +73,7 @@ const globalClick$ = fromEvent(document, "click").pipe(
   }),
 );
 
-const { vision$, stableVision$, pendingDescriptionCount$ } = getVision();
-
-const visualize$ = stableVision$.pipe(
-  tap((state) => {
-    debugCaption.textContent = state.description;
-  }),
-  switchMap(async (state) => {
-    // const dataUrl = await togetherAINode.generateImageDataURL(
-    //   state.description +
-    //     ` Render in Needle felted miniature scene. The color palette is muted and pastel, featuring various shades of orange, pink, green, and teal. The lighting is soft and diffused, creating a gentle, whimsical atmosphere. The overall style is reminiscent of children's book illustration, with a focus on texture and detail. The rendering is highly detailed, with a focus on the texture of the felt and the three-dimensionality of the miniature elements.  The scene is highly saturated, but the colors are soft and not harsh. The overall feel is cozy and inviting.`,
-    // );
-    // debugOutput.src = dataUrl;
-  }),
-);
+const { pendingDescriptionCount$ } = getVision();
 
 const renderCaptionStatus$ = pendingDescriptionCount$.pipe(
   tap((count) => {
@@ -100,4 +87,3 @@ const renderCaptionStatus$ = pendingDescriptionCount$.pipe(
 
 globalClick$.subscribe();
 renderCaptionStatus$.subscribe();
-visualize$.subscribe();

@@ -23,11 +23,11 @@ export class TogetherAINode extends HTMLElement {
     const together = new Together({ apiKey: connection.togetherAIKey });
 
     const response = await together.images.create({
-      model: "black-forest-labs/FLUX.1-dev",
+      model: "black-forest-labs/FLUX.1-schnell-Free",
       prompt: prompt,
       width: options?.width ?? 400,
       height: options?.height ?? 400,
-      steps: options?.steps ?? 28,
+      steps: options?.steps ?? 4,
       n: 1,
       response_format: "base64",
     });
