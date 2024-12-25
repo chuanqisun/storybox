@@ -11,6 +11,7 @@ export function getVision() {
   const debugCapture = $<HTMLImageElement>("#debug-capture")!;
   const debugCaption = $<HTMLElement>("#debug-caption")!;
   const debugOutput = $<HTMLImageElement>("#debug-output")!;
+  const captionStatus = $<HTMLElement>("#caption-status")!;
 
   const vision$ = fromEvent(cameraNode, "framechange").pipe(
     // debounceTime(1000), // TODO remove
@@ -102,7 +103,6 @@ export function getVision() {
 
   const renderCaptionStatus$ = pendingDescriptionCount$.pipe(
     tap((count) => {
-      const captionStatus = $<HTMLElement>("#caption-status")!;
       if (!count) {
         captionStatus.textContent = "Ready";
       } else {
