@@ -1,6 +1,8 @@
+import { BehaviorSubject } from "rxjs";
+
 export interface StoryState {
   status: "customizing" | "generating" | "playing";
-  style?: string;
+  style: "realistic" | "flet" | "paper" | "manga";
   elements: StoryElement[];
   chapters: StoryChapter[];
   guests: StoryGuest[];
@@ -31,3 +33,13 @@ export interface StoryGuest {
   comments: string[];
   expression: unknown; // TODO facial expression state
 }
+
+export const state$ = new BehaviorSubject<StoryState>({
+  status: "customizing",
+  style: "realistic",
+  elements: [],
+  chapters: [],
+  guests: [],
+});
+
+export const systemInstruction = state$;

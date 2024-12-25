@@ -5,7 +5,7 @@ import { OpenAIRealtimeNode } from "./lib/ai-bar/lib/elements/openai-realtime-no
 import type { TogetherAINode } from "./lib/ai-bar/lib/elements/together-ai-node";
 import { loadAIBar } from "./lib/ai-bar/loader";
 import { $, parseActionEvent } from "./lib/dom";
-import { getVision } from "./prompt/get-vision";
+import { getVision } from "./story-engine/vision";
 import "./storybox.css";
 
 loadAIBar();
