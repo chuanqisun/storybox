@@ -30,7 +30,7 @@ export function getVision() {
           .create(
             {
               messages: [
-                system`Describe the objects on the desk and their relationships in one brief sentence.`,
+                system`Precisely describe the objects on the desk and their relationships in one brief sentence. Do NOT mention the desk itself`,
                 {
                   role: "user",
                   content: [
@@ -92,7 +92,10 @@ export function getVision() {
     }),
     switchMap(async (state) => {
       const togetherAINode = $<TogetherAINode>("together-ai-node")!;
-      const dataUrl = await togetherAINode.generateImageDataURL(state.description);
+      const dataUrl = await togetherAINode.generateImageDataURL(
+        state.description +
+          ` Render in Needle felted miniature scene. The color palette is muted and pastel, featuring various shades of orange, pink, green, and teal. The lighting is soft and diffused, creating a gentle, whimsical atmosphere. The overall style is reminiscent of children's book illustration, with a focus on texture and detail. The rendering is highly detailed, with a focus on the texture of the felt and the three-dimensionality of the miniature elements.  The scene is highly saturated, but the colors are soft and not harsh. The overall feel is cozy and inviting.`,
+      );
       debugOutput.src = dataUrl;
     }),
   );
