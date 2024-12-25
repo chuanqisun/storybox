@@ -1,4 +1,4 @@
-import { debounceTime, Subject, Subscription } from "rxjs";
+import { debounceTime, Subject, Subscription, tap } from "rxjs";
 
 export function defineCameraNode() {
   customElements.define("camera-node", CameraNode);
@@ -70,12 +70,15 @@ export class CameraNode extends HTMLElement {
 
       this.videoElement.addEventListener("play", this.processFrame.bind(this));
 
-      const debouncedScan = this.diffStream$.pipe(debounceTime(this.dynamicScanDebounce));
+      const debouncedScan = this.diffStream$.pipe(
+        debounceTime(this.dynamicScanDebounce),
+        tap((diffPercentage) => {
+          this.dispatchEvent(new Event("framechange"));
+          console.log("framechange", { diffPercentage });
+        }),
+      );
 
-      debouncedScan.subscribe((diffPercentage) => {
-        this.dispatchEvent(new Event("framechange"));
-        console.log(`Debounced significant change detected: ${diffPercentage * 100}% of pixels differ.`);
-      });
+      this.diffStreamSub = debouncedScan.subscribe();
     } catch (error) {
       console.error("Error accessing webcam:", error);
     }
