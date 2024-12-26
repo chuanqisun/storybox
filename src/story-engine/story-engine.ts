@@ -84,8 +84,10 @@ export class StoryEngine {
       .pipe(
         tap((state) => console.log("debug state", state)),
         distinctUntilKeyChanged("stage"),
-        switchMap(({ stage: status }) => {
-          switch (status) {
+        switchMap(({ stage }) => {
+          $<HTMLElement>(`[data-stage]`)?.setAttribute("data-stage", stage);
+
+          switch (stage) {
             case "customizing": {
               const customizerVision = this.useStableVision();
               const customizerInstruction = this.useCustomizerInstruction();

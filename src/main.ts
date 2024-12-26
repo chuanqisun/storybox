@@ -7,7 +7,8 @@ import { loadAIBar } from "./lib/ai-bar/loader";
 import { $, parseActionEvent } from "./lib/dom";
 import { StoryEngine } from "./story-engine/story-engine";
 import { getVision } from "./story-engine/vision";
-import "./storybox.css";
+
+import "./main.css";
 
 loadAIBar();
 
@@ -29,6 +30,10 @@ const globalClick$ = fromEvent(document, "click").pipe(
   filter((e) => e.action !== null),
   tap(async (e) => {
     switch (e.action) {
+      case "hide": {
+        $<HTMLElement>(".app-layout")!.classList.add("full-screen");
+        break;
+      }
       case "connect": {
         connectButton.textContent = "Connecting...";
         await realtime.start();
@@ -76,13 +81,7 @@ const globalClick$ = fromEvent(document, "click").pipe(
 const { pendingDescriptionCount$, vision$ } = getVision();
 
 const renderCaptionStatus$ = pendingDescriptionCount$.pipe(
-  tap((count) => {
-    if (!count) {
-      captionStatus.textContent = "Ready";
-    } else {
-      captionStatus.textContent = `Pending: ${count}`;
-    }
-  }),
+  tap((count) => (captionStatus.textContent = `${count} pending`)),
 );
 
 globalClick$.subscribe();

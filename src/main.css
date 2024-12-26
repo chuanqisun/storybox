@@ -81,6 +81,17 @@ body {
 
 .app-layout {
   display: grid;
+  grid-template-columns: auto 1fr;
+
+  > :first-child {
+    width: 400px;
+  }
+
+  &.full-screen {
+    > :first-child {
+      display: none;
+    }
+  }
 }
 
 .debug-layout {
@@ -107,6 +118,18 @@ body {
   }
 }
 
+[data-stage="playing"] {
+  [data-visible-stage]:not([data-visible-stage="playing"]) {
+    display: none;
+  }
+}
+
+[data-stage="customizing"] {
+  [data-visible-stage]:not([data-visible-stage="customizing"]) {
+    display: none;
+  }
+}
+
 menu {
   padding: 0;
   display: flex;
@@ -116,7 +139,7 @@ menu {
   gap: 0.25rem;
 }
 
-main {
+#timeline {
   * {
     display: none;
   }

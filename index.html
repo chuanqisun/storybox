@@ -8,20 +8,27 @@
   </head>
 
   <body>
-    <menu>
-      <button data-action="connect">Connect</button>
-      <button data-action="mute">Mute</button>
-      <button data-action="enable-camera">Enable camera</button>
-      <div id="caption-status"></div>
-    </menu>
-    <div class="debug-layout">
-      <img id="debug-capture" src="https://placehold.co/400?text=CAPTURE" />
-      <video id="debug-video" poster="https://placehold.co/400?text=STREAM"></video>
-      <img id="visual-output" src="https://placehold.co/400?text=OUTPUT" />
-      <canvas id="debug-canvas" style="display: none"></canvas>
+    <div class="app-layout">
+      <aside>
+        <menu>
+          <button data-action="connect">Connect</button>
+          <button data-action="mute">Mute</button>
+          <button data-action="enable-camera">Enable camera</button>
+          <button data-action="hide">Present</button>
+          <div id="caption-status"></div>
+        </menu>
+        <div class="debug-layout">
+          <img id="debug-capture" src="https://placehold.co/400?text=CAPTURE" />
+          <video id="debug-video" poster="https://placehold.co/400?text=STREAM"></video>
+          <canvas id="debug-canvas" style="display: none"></canvas>
+        </div>
+        <p id="debug-caption"></p>
+      </aside>
+      <main data-stage="customizing">
+        <img data-visible-stage="customizing" id="visual-output" src="https://placehold.co/400?text=OUTPUT" />
+        <div data-visible-stage="playing" id="timeline"></div>
+      </main>
     </div>
-    <p id="debug-caption"></p>
-    <main id="timeline"></main>
     <ai-bar auto-hide>
       <!-- <stt-node></stt-node> -->
       <azure-stt-node></azure-stt-node>
@@ -37,6 +44,6 @@
       <azure-connection></azure-connection>
       <walkie-talkie-button></walkie-talkie-button>
     </ai-bar>
-    <script src="/src/storybox.ts" type="module"></script>
+    <script src="/src/main.ts" type="module"></script>
   </body>
 </html>
