@@ -1,27 +1,19 @@
-import { filter, fromEvent, map, merge, tap } from "rxjs";
-import { AIBar } from "./lib/ai-bar/lib/ai-bar";
+import { filter, fromEvent, map, tap } from "rxjs";
 import { CameraNode } from "./lib/ai-bar/lib/elements/camera-node";
 import { OpenAIRealtimeNode } from "./lib/ai-bar/lib/elements/openai-realtime-node";
-import type { TogetherAINode } from "./lib/ai-bar/lib/elements/together-ai-node";
 import { loadAIBar } from "./lib/ai-bar/loader";
 import { $, parseActionEvent } from "./lib/dom";
 import { StoryEngine } from "./story-engine/story-engine";
-import { getVision } from "./story-engine/vision";
 
 import "./main.css";
 
 loadAIBar();
 
-const aiBar = $<AIBar>("ai-bar")!;
 const realtime = $<OpenAIRealtimeNode>("openai-realtime-node")!;
 const connectButton = $<HTMLButtonElement>(`button[data-action="connect"]`)!;
 const muteButton = $<HTMLButtonElement>(`button[data-action="mute"]`)!;
 const cameraButton = $<HTMLButtonElement>(`button[data-action="enable-camera"]`)!;
 const cameraNode = $<CameraNode>("camera-node")!;
-const togetherAINode = $<TogetherAINode>("together-ai-node")!;
-const debugCaption = $<HTMLElement>("#debug-caption")!;
-const visualOutput = $<HTMLImageElement>("#visual-output")!;
-const captionStatus = $<HTMLElement>("#caption-status")!;
 
 const storyEngine = new StoryEngine();
 
@@ -78,11 +70,4 @@ const globalClick$ = fromEvent(document, "click").pipe(
   }),
 );
 
-const { pendingDescriptionCount$, vision$ } = getVision();
-
-const renderCaptionStatus$ = pendingDescriptionCount$.pipe(
-  tap((count) => (captionStatus.textContent = `${count} pending`)),
-);
-
 globalClick$.subscribe();
-merge(vision$, renderCaptionStatus$).subscribe();

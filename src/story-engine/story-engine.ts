@@ -34,6 +34,7 @@ export interface StoryCharacter {
   dailyObject: string;
   characterName: string;
   characterDescription: string;
+  imageUrl?: string;
 }
 
 export interface StoryScene {
@@ -53,9 +54,16 @@ export interface StoryGuest {
 const realtime = $<OpenAIRealtimeNode>("openai-realtime-node")!;
 const vision = getVision();
 const togetherAINode = $<TogetherAINode>("together-ai-node")!;
-const visualOutput = $<HTMLImageElement>("#visual-output")!;
 const llmNode = $<LlmNode>("llm-node")!;
 const timeline = $<HTMLElement>("#timeline")!;
+const captionStatus = $<HTMLElement>("#caption-status")!;
+const charactersGrid = $<HTMLElement>("#characters")!;
+
+const { pendingDescriptionCount$, vision$ } = getVision();
+const renderCaptionStatus$ = pendingDescriptionCount$.pipe(
+  tap((count) => (captionStatus.textContent = `${count} pending`)),
+);
+merge(vision$, renderCaptionStatus$).subscribe();
 
 const state$ = new BehaviorSubject<StoryState>({
   stage: "new",
@@ -73,7 +81,7 @@ const styles = [claymationStyle, needleFeltedScene];
 
 export class StoryEngine {
   private subs: Subscription[] = [];
-  private imagePrompt$ = new Subject<string>();
+  private characterImagePrompt$ = new Subject<{ characterName: string; characterDescription: string }>();
 
   start() {
     const sub = state$
@@ -85,23 +93,25 @@ export class StoryEngine {
 
           switch (stage) {
             case "customizing": {
-              const customizerVision = this.useStableVision();
-              const customizerInstruction = this.useCustomizerInstruction();
-              const customizerVisualOutput = this.useCustomizerVisualOutput();
-              const incrementalVision = this.useIncrementalVision();
-              return merge(customizerVision, customizerInstruction, customizerVisualOutput, incrementalVision);
+              return merge(
+                this.useStableVision(),
+                this.useCustomizerInstruction(),
+                this.useCustomizerVisualOutput(),
+                this.useIncrementalVision(),
+                this.useCharacterGrid(),
+              );
             }
             case "playing": {
-              const timeline = this.usePlayerTimeline();
-              const playerInstruction = this.usePlayerInstruction();
-              const playerVision = this.useStableVision();
-              const incrementalVision = this.useIncrementalVision();
-
               setTimeout(() => {
                 realtime.appendUserMessage("Please create the opening scene now").createResponse();
               }, 1000);
 
-              return merge(timeline, playerInstruction, playerVision, incrementalVision);
+              return merge(
+                this.usePlayerTimeline(),
+                this.usePlayerInstruction(),
+                this.useStableVision(),
+                this.useIncrementalVision(),
+              );
             }
           }
 
@@ -233,12 +243,16 @@ Now work with the user to develop the story one scene at a time.
   }
 
   useCustomizerVisualOutput() {
-    return this.imagePrompt$.pipe(
+    return this.characterImagePrompt$.pipe(
       switchMap(async (prompt) => {
-        // TODO implement abort control
-        // TODO store the image with the character
-        const dataUrl = await togetherAINode.generateImageDataURL(prompt + ` ${claymationStyle}`);
-        visualOutput.src = dataUrl;
+        togetherAINode.generateImageDataURL(prompt.characterDescription + ` ${claymationStyle}`).then((dataUrl) => {
+          state$.next({
+            ...state$.value,
+            characters: state$.value.characters.map((e) =>
+              e.characterName === prompt.characterName ? { ...e, imageUrl: dataUrl } : e,
+            ),
+          });
+        });
       }),
     );
   }
@@ -267,11 +281,14 @@ Now work with the user to develop the story one scene at a time.
                 characterDescription: args.characterDescription,
               };
 
-              this.imagePrompt$.next(newCharacter.characterDescription);
-
               state$.next({
                 ...state$.value,
                 characters: [...state$.value.characters, newCharacter],
+              });
+
+              this.characterImagePrompt$.next({
+                characterName: args.characterName,
+                characterDescription: args.characterDescription,
               });
 
               return `Memory updated. ${args.dailyObject} represents ${args.characterName} (${args.characterDescription})`;
@@ -321,7 +338,10 @@ Now work with the user to develop the story one scene at a time.
                 characterDescription: args.update.characterDescription,
               };
 
-              this.imagePrompt$.next(updatedElement.characterDescription);
+              this.characterImagePrompt$.next({
+                characterName: args.update.characterName,
+                characterDescription: updatedElement.characterDescription,
+              });
 
               state$.next({
                 ...state$.value,
@@ -385,6 +405,23 @@ After each tool use, very concisely tell user what you did.
           `.trim(),
           );
       }),
+    );
+  }
+
+  useCharacterGrid() {
+    return state$.pipe(
+      map(
+        (state) =>
+          html`${state.characters.map(
+            (character) => html`
+              <div class="media-card">
+                <img src="${character.imageUrl ?? `https://placehold.co/400?text=Sketching...`}" />
+                <p>${character.characterName}</p>
+              </div>
+            `,
+          )}`,
+      ),
+      tap((htmlTemplate) => render(htmlTemplate, charactersGrid)),
     );
   }
 

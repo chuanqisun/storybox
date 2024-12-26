@@ -88,10 +88,20 @@ body {
   }
 
   &.full-screen {
+    grid-template-columns: 1fr;
+
     > :first-child {
       display: none;
     }
   }
+}
+
+.character-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+
+  /* make sure the grid can take full width of the container */
+  width: 100%;
 }
 
 .debug-layout {
@@ -127,6 +137,24 @@ body {
 [data-stage="customizing"] {
   [data-visible-stage]:not([data-visible-stage="customizing"]) {
     display: none;
+  }
+}
+
+.media-card {
+  position: relative;
+  img {
+    width: 100%;
+    aspect-ratio: 1;
+  }
+
+  p {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: black;
+    width: max-content;
+    padding: 0.25rem;
   }
 }
 
