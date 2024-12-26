@@ -45,6 +45,7 @@ export interface StoryChapter {
 export interface StoryScene {
   placeholderImgUrl: string;
   imageUrl?: string;
+  narration: string;
   caption: string;
 }
 
@@ -136,6 +137,111 @@ export class StoryEngine {
       distinct((state) => JSON.stringify([state.chapters, state.vision])),
       tap((state) => {
         realtime
+          .addDraftTool({
+            name: "develop_scene",
+            description: "Develop a new scene for the current chapter",
+            parameters: z.object({
+              narration: z.string().describe("The story narration for the scene"),
+              sceneDescription: z
+                .string()
+                .describe(
+                  "An objective description of the subjects in the scene. Focus on physcial appearance, lighting, camera angle, etc",
+                ),
+            }),
+            run: async (args) => {
+              const currentChapterIndex =
+                state$.value.chapters.findIndex((chapter) => chapter.scenes.length > 0) ?? state$.value.chapters.at(0);
+              const currentChapter = state$.value.chapters[currentChapterIndex];
+              if (!currentChapter) return "Error: No chapter found";
+
+              const dataUrl = await togetherAINode.generateImageDataURL(
+                args.sceneDescription +
+                  ` Render in Needle felted miniature scene. The color palette is muted and pastel, featuring various shades of orange, pink, green, and teal. The lighting is soft and diffused, creating a gentle, whimsical atmosphere. The overall style is reminiscent of children's book illustration, with a focus on texture and detail. The rendering is highly detailed, with a focus on the texture of the felt and the three-dimensionality of the miniature elements.  The scene is highly saturated, but the colors are soft and not harsh. The overall feel is cozy and inviting.`,
+              );
+
+              state$.next({
+                ...state$.value,
+                chapters: state$.value.chapters.map((chapter) =>
+                  chapter === currentChapter
+                    ? {
+                        ...chapter,
+                        scenes: [
+                          ...chapter.scenes,
+                          {
+                            placeholderImgUrl: "",
+                            imageUrl: dataUrl,
+                            narration: args.narration,
+                            caption: args.sceneDescription,
+                          },
+                        ],
+                      }
+                    : chapter,
+                ),
+              });
+
+              return `Chapter ${currentChapterIndex + 1} Scene ${state$.value.chapters.at(-1)?.scenes.length} developed. Please narrate: ${args.narration}`;
+            },
+          })
+          .addDraftTool({
+            name: "develop_next_chapter",
+            description: "Develop an opening scene for the next chapter",
+            parameters: z.object({
+              narration: z
+                .string()
+                .describe(
+                  "The story narration for the chapter's opening scene. The opening scene should set the tone for the entire chapter",
+                ),
+              sceneDescription: z
+                .string()
+                .describe(
+                  "An objective description of the subjects in the scene. Focus on physcial appearance, lighting, camera angle, etc",
+                ),
+            }),
+            run: async (args) => {
+              const newChapterIndex =
+                state$.value.chapters.findIndex((chapter) => chapter.scenes.length === 0) ??
+                state$.value.chapters.at(0);
+              const newChapter = state$.value.chapters[newChapterIndex];
+              if (!newChapter) return "Error: No chapter found";
+
+              const dataUrl = await togetherAINode.generateImageDataURL(
+                args.sceneDescription +
+                  ` Render in Needle felted miniature scene. The color palette is muted and pastel, featuring various shades of orange, pink, green, and teal. The lighting is soft and diffused, creating a gentle, whimsical atmosphere. The overall style is reminiscent of children's book illustration, with a focus on texture and detail. The rendering is highly detailed, with a focus on the texture of the felt and the three-dimensionality of the miniature elements.  The scene is highly saturated, but the colors are soft and not harsh. The overall feel is cozy and inviting.`,
+              );
+
+              state$.next({
+                ...state$.value,
+                chapters: state$.value.chapters.map((chapter) =>
+                  chapter === newChapter
+                    ? {
+                        ...chapter,
+                        scenes: [
+                          ...chapter.scenes,
+                          {
+                            placeholderImgUrl: dataUrl,
+                            narration: args.narration,
+                            caption: args.sceneDescription,
+                          },
+                        ],
+                      }
+                    : chapter,
+                ),
+              });
+
+              this.imagePrompt$.next(args.sceneDescription);
+
+              return `Chapter ${newChapterIndex + 1} Scene ${state$.value.chapters.at(-1)?.scenes.length} developed. Please narrate: ${args.narration}`;
+            },
+          })
+          .addDraftTool({
+            name: "end_story",
+            description: "End the story",
+            parameters: z.object({}),
+            run: () => {
+              this.changeStage("new");
+              return "Story ended. Ask user if they want to start a new one";
+            },
+          })
           .commitDraftTools() // clear previous tools
           .updateSessionInstructions(
             `
@@ -152,27 +258,35 @@ Daily object: ${ele.sourceName} (${ele.sourceDetails})
   )
   .join("\n\n")}
 
-Here is the overarching story you have developed so far
+Here is the story you have developed so far
 
 ${state.chapters
   .map((chapter, index) =>
     `
 Chapter ${index + 1}
 Summary: ${chapter.summary}
-${chapter.scenes
-  .map((scene, i) =>
-    `Scene ${i + 1} ${scene.caption}
+Scenes:${!chapter.scenes.length ? " No scene has been developed yet" : ""}
+${
+  chapter.scenes.length
+    ? chapter.scenes
+        .map((scene, i) =>
+          `
+  Scene ${i + 1} narration: ${scene.narration} 
+  Scene ${i + 1} description: ${scene.caption}
   `.trim(),
-  )
-  .join("\n\n")}
+        )
+        .join("\n\n")
+    : ""
+}
+}
 
 Now work with the user to develop the story one scene at a time. 
 The user will show you objects they would like to use to steer the narrative of the story.
 Follow this process to develop the story:
 - Let user guide you with the objects they show and the words the say
-- Use develop_scene tool to develop a new scene for the current chapter
-- Use open_new_chapter tool to open a new chapter
-- When you reach the end of the story, use end_story tool to end the story
+- Use develop_scene tool to develop a new scene for the current chapter. Do NOT deviate from the chapter's summary
+- When user is ready, use develop_next_chapter tool to start developing the next chapter
+- When you reach the end of the three chapter story, use end_story tool to end the story. Do NOT exceed three chapters
 
 The user is currently showing you: ${state.vision}
           `.trim(),
@@ -272,7 +386,7 @@ The user is currently showing you: ${state.vision}
 
                 this.changeStage("playing");
               });
-              return "Story is being generated. Tell user the story will soon be ready";
+              return "Story created. Tell user they can open the first chapter now.";
             },
           })
           .commitDraftTools()
