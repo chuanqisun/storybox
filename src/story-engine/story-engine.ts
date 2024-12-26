@@ -31,10 +31,9 @@ export interface StoryState {
 }
 
 export interface StoryCharacter {
-  sourceName: string;
-  sourceDetails: string;
-  targetName: string;
-  targetDetails: string;
+  dailyObject: string;
+  characterName: string;
+  characterDescription: string;
 }
 
 export interface StoryScene {
@@ -190,8 +189,8 @@ You and the user have agreed on using the following daily objects to represent c
 ${state.characters
   .map((ele) =>
     `
-Daily object: ${ele.sourceName} (${ele.sourceDetails})
-Character: ${ele.targetName} (${ele.targetDetails})
+Daily object: ${ele.dailyObject} 
+Character: ${ele.characterName} (${ele.characterDescription})
   `.trim(),
   )
   .join("\n\n")}
@@ -251,54 +250,60 @@ Now work with the user to develop the story one scene at a time.
         realtime
           .addDraftTool({
             name: "create_character",
-            description: "Crreate a character in the story",
+            description: "Create a character in the story",
             parameters: z.object({
-              inStory: z.object({
-                name: z.string().describe("The name the character in the story"),
-                description: z
-                  .string()
-                  .describe(
-                    "Detailed description of the character, including age, ethnicity, gender, skin color, facial features, body build, hair style and color, clothing, etc",
-                  ),
-              }),
-              inRealLife: z.object({
-                name: z.string().describe("The real world object the user has shown"),
-                description: z
-                  .string()
-                  .describe("Detailed description of the object, including color, shape, size, texture, etc"),
-              }),
+              dailyObject: z.string().describe("The real world object the user has shown"),
+              characterName: z.string().describe("The name the character in the story"),
+              characterDescription: z
+                .string()
+                .describe(
+                  "Detailed description of the character, including age, ethnicity, gender, skin color, facial features, body build, hair style and color, clothing, etc",
+                ),
             }),
             run: (args) => {
-              const hasExisting = state$.value.characters.find((e) => e.targetName === args.inStory.name);
-
-              const updatedElement: StoryCharacter = {
-                sourceName: args.inRealLife.name,
-                sourceDetails: args.inRealLife.description,
-                targetName: args.inStory.name,
-                targetDetails: args.inStory.description,
+              const newCharacter: StoryCharacter = {
+                dailyObject: args.dailyObject,
+                characterName: args.characterName,
+                characterDescription: args.characterDescription,
               };
 
-              this.imagePrompt$.next(updatedElement.targetDetails);
+              this.imagePrompt$.next(newCharacter.characterDescription);
 
               state$.next({
                 ...state$.value,
-                characters: hasExisting
-                  ? state$.value.characters.map((e) => (e.sourceName === args.inRealLife.name ? updatedElement : e))
-                  : [...state$.value.characters, updatedElement],
+                characters: [...state$.value.characters, newCharacter],
               });
 
-              return `Memory updated. ${args.inRealLife.name} represents ${args.inStory.name} in the story.`;
+              return `Memory updated. ${args.dailyObject} represents ${args.characterName} (${args.characterDescription})`;
+            },
+          })
+          .addDraftTool({
+            name: "remove_character",
+            description: "Remove a character in the story",
+            parameters: z.object({
+              characterName: z.string().describe("The name of the character in the story"),
+            }),
+            run: (args) => {
+              const existing = state$.value.characters.find((e) => e.characterName === args.characterName);
+              if (!existing) return "Character not found";
+
+              state$.next({
+                ...state$.value,
+                characters: state$.value.characters.filter((e) => e.characterName !== args.characterName),
+              });
+
+              return `Memory updated. ${args.characterName} is removed.`;
             },
           })
           .addDraftTool({
             name: "change_character",
             description: "Change a character in the story",
             parameters: z.object({
-              currentInStoryName: z.string().describe("The current name of the character in the story"),
-              inStory: z
+              previousCharacterName: z.string().describe("The current name of the character in the story"),
+              update: z
                 .object({
-                  name: z.string().describe("The name the character in the story"),
-                  description: z
+                  characterName: z.string().describe("The name the character in the story"),
+                  characterDescription: z
                     .string()
                     .describe(
                       "Detailed description of the character, including age, ethnicity, gender, skin color, facial features, body build, hair style and color, clothing, etc",
@@ -307,25 +312,25 @@ Now work with the user to develop the story one scene at a time.
                 .describe("The updated name and description of the character in the story"),
             }),
             run: (args) => {
-              const existing = state$.value.characters.find((e) => e.targetName === args.currentInStoryName);
+              const existing = state$.value.characters.find((e) => e.characterName === args.previousCharacterName);
               if (!existing) return "Character not found";
 
               const updatedElement: StoryCharacter = {
                 ...existing,
-                targetName: args.inStory.name,
-                targetDetails: args.inStory.description,
+                characterName: args.update.characterName,
+                characterDescription: args.update.characterDescription,
               };
 
-              this.imagePrompt$.next(updatedElement.targetDetails);
+              this.imagePrompt$.next(updatedElement.characterDescription);
 
               state$.next({
                 ...state$.value,
                 characters: state$.value.characters.map((e) =>
-                  e.targetName === args.currentInStoryName ? updatedElement : e,
+                  e.characterName === args.previousCharacterName ? updatedElement : e,
                 ),
               });
 
-              return `Memory updated. ${existing.sourceName} now represents ${args.inStory.name} in the story.`;
+              return `Memory updated. ${existing.dailyObject} now represents ${args.update.characterName} in the story.`;
             },
           })
           .addDraftTool({
@@ -361,8 +366,8 @@ ${
 ${state.characters
   .map((ele) =>
     `
-Daily object: ${ele.sourceName} (${ele.sourceDetails})
-Character: ${ele.targetName} (${ele.targetDetails})
+Daily object: ${ele.dailyObject} 
+Character: ${ele.characterName} (${ele.characterDescription})
   `.trim(),
   )
   .join("\n\n")}`
@@ -372,10 +377,11 @@ Character: ${ele.targetName} (${ele.targetDetails})
 The user is currently showing you: ${state.vision}
 
 Now interact with the user in one of the following ways:
-- Chat with the user to help them find good every objects. Be creative and practical.
 - Use the create_character tool to update your memory with the new information.
-- Use change_character tool to update your memory with the new information.
+- Use change_character or remove_character tool to update your memory with the latest instruction from the user
 - When user is ready, use the start_story tool to start the story. Do NOT start_story without user's explicit permission.
+
+After each tool use, very concisely tell user what you did.
           `.trim(),
           );
       }),
@@ -388,7 +394,7 @@ Now interact with the user in one of the following ways:
       messages: [
         system`You are a talented story writer. Write a stunning narrative featuring these elements:
 
-${state$.value.characters.map((ele) => `${ele.targetName} (${ele.targetDetails})`).join("\n")}
+${state$.value.characters.map((ele) => `${ele.characterName} (${ele.characterDescription})`).join("\n")}
 
 You must write a high level narrative for the story and leave out all the details. The narrative should be one very concise paragraph.
 
