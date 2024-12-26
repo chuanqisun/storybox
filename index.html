@@ -9,21 +9,19 @@
 
   <body>
     <div class="app-layout">
-      <aside>
+      <header class="debug-control">
         <menu>
           <button data-action="connect">Connect</button>
           <button data-action="mute">Mute</button>
           <button data-action="enable-camera">Enable camera</button>
-          <button data-action="hide">Present</button>
+          <button data-action="present">Present</button>
           <div id="caption-status"></div>
         </menu>
-        <div class="debug-layout">
-          <img id="debug-capture" src="https://placehold.co/400?text=CAPTURE" />
+        <div class="monitor-layout">
           <video id="debug-video" poster="https://placehold.co/400?text=STREAM"></video>
-          <canvas id="debug-canvas" style="display: none"></canvas>
+          <img id="debug-capture" src="https://placehold.co/400?text=CAPTURE" />
         </div>
-        <p id="debug-caption"></p>
-      </aside>
+      </header>
       <main data-stage="customizing">
         <div data-visible-stage="customizing" id="characters" class="character-grid"></div>
         <div data-visible-stage="playing" id="timeline"></div>

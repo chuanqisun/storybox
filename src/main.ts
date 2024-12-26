@@ -22,8 +22,8 @@ const globalClick$ = fromEvent(document, "click").pipe(
   filter((e) => e.action !== null),
   tap(async (e) => {
     switch (e.action) {
-      case "hide": {
-        $<HTMLElement>(".app-layout")!.classList.add("full-screen");
+      case "present": {
+        $<HTMLElement>(".app-layout")!.classList.add("presenting");
         break;
       }
       case "connect": {
