@@ -84,14 +84,16 @@ export class StoryEngine {
         switchMap(({ stage: status }) => {
           switch (status) {
             case "customizing":
-              const customizerVision = this.useCustomizerVision();
+              const customizerVision = this.useStableVision();
               const customizerInstruction = this.useCustomizerInstruction();
               const customizerVisualOutput = this.useCustomizerVisualOutput();
               return merge(customizerVision, customizerInstruction, customizerVisualOutput);
             case "playing":
               const timeline = this.usePlayerTimeline();
               const playerInstruction = this.usePlayerInstruction();
-              return merge(timeline, playerInstruction);
+              const playerVision = this.useInterruptVision();
+
+              return merge(timeline, playerInstruction, playerVision);
           }
 
           return of();
@@ -120,8 +122,8 @@ export class StoryEngine {
               ${chapter.scenes.map(
                 (scene) => html`
                   <div class="scene">
-                    <img src="${scene.imageUrl ?? scene.placeholderImgUrl}" alt="${scene.caption}" />
-                    <p>${scene.caption}</p>
+                    <img src="${scene.imageUrl ?? scene.placeholderImgUrl}" title="${scene.caption}" />
+                    <p>${scene.narration}</p>
                   </div>
                 `,
               )}
@@ -141,18 +143,18 @@ export class StoryEngine {
             name: "develop_scene",
             description: "Develop a new scene for the current chapter",
             parameters: z.object({
-              narration: z.string().describe("The story narration for the scene"),
+              narration: z.string().describe("The story narration for the scene, one concise utterance"),
               sceneDescription: z
                 .string()
                 .describe(
-                  "An objective description of the subjects in the scene. Focus on physcial appearance, lighting, camera angle, etc",
+                  "An objective description of the subjects in the scene. Focus on physcial appearance, relations of objects, camera angle, lighting etc",
                 ),
             }),
             run: async (args) => {
-              const currentChapterIndex =
-                state$.value.chapters.findIndex((chapter) => chapter.scenes.length > 0) ?? state$.value.chapters.at(0);
-              const currentChapter = state$.value.chapters[currentChapterIndex];
+              const currentChapter =
+                state$.value.chapters.findLast((chapter) => chapter.scenes.length > 0) ?? state$.value.chapters.at(0);
               if (!currentChapter) return "Error: No chapter found";
+              const currentChapterIndex = state$.value.chapters.findIndex((chapter) => chapter === currentChapter);
 
               const dataUrl = await togetherAINode.generateImageDataURL(
                 args.sceneDescription +
@@ -188,9 +190,7 @@ export class StoryEngine {
             parameters: z.object({
               narration: z
                 .string()
-                .describe(
-                  "The story narration for the chapter's opening scene. The opening scene should set the tone for the entire chapter",
-                ),
+                .describe("The story narration for the chapter's opening scene, one concise utterance"),
               sceneDescription: z
                 .string()
                 .describe(
@@ -239,7 +239,7 @@ export class StoryEngine {
             parameters: z.object({}),
             run: () => {
               this.changeStage("new");
-              return "Story ended. Ask user if they want to start a new one";
+              return "Story has ended. Ask user if they want to start a new one";
             },
           })
           .commitDraftTools() // clear previous tools
@@ -285,8 +285,8 @@ The user will show you objects they would like to use to steer the narrative of 
 Follow this process to develop the story:
 - Let user guide you with the objects they show and the words the say
 - Use develop_scene tool to develop a new scene for the current chapter. Do NOT deviate from the chapter's summary
-- When user is ready, use develop_next_chapter tool to start developing the next chapter
-- When you reach the end of the three chapter story, use end_story tool to end the story. Do NOT exceed three chapters
+- With user's permission, use develop_next_chapter tool to start developing the next chapter
+- With user's permission, when you reach the end of the three chapter story, use end_story tool to end the story. Do NOT exceed three chapters
 
 The user is currently showing you: ${state.vision}
           `.trim(),
@@ -299,10 +299,19 @@ The user is currently showing you: ${state.vision}
     );
   }
 
-  useCustomizerVision() {
+  useStableVision() {
     return vision.stableVision$.pipe(
       tap((visionUpdate) => {
         state$.next({ ...state$.value, vision: visionUpdate.description });
+      }),
+    );
+  }
+
+  useInterruptVision() {
+    return vision.stableVision$.pipe(
+      tap((visionUpdate) => {
+        state$.next({ ...state$.value, vision: visionUpdate.description });
+        realtime.appendUserMessage(`I am showing you: ${visionUpdate.description}. Please develop a scene for it`);
       }),
     );
   }
@@ -386,7 +395,8 @@ The user is currently showing you: ${state.vision}
 
                 this.changeStage("playing");
               });
-              return "Story created. Tell user they can open the first chapter now.";
+
+              return "Tell the user they can open the first chapter now.";
             },
           })
           .commitDraftTools()
@@ -413,7 +423,7 @@ The user is currently showing you: ${state.vision}
 Now interact with the user in one of the following ways:
 - Chat with the user to help them find good every objects. Be creative and practical.
 - Use the upsert_character tool to update your memory with the new information.
-- When user is ready to start the story, use the start_story tool to start the story.
+- With user's permission, use the start_story tool to start the story.
           `.trim(),
           );
       }),

@@ -1,4 +1,4 @@
-import { filter, fromEvent, map, tap } from "rxjs";
+import { filter, fromEvent, map, merge, tap } from "rxjs";
 import { AIBar } from "./lib/ai-bar/lib/ai-bar";
 import { CameraNode } from "./lib/ai-bar/lib/elements/camera-node";
 import { OpenAIRealtimeNode } from "./lib/ai-bar/lib/elements/openai-realtime-node";
@@ -73,7 +73,7 @@ const globalClick$ = fromEvent(document, "click").pipe(
   }),
 );
 
-const { pendingDescriptionCount$ } = getVision();
+const { pendingDescriptionCount$, vision$ } = getVision();
 
 const renderCaptionStatus$ = pendingDescriptionCount$.pipe(
   tap((count) => {
@@ -86,4 +86,4 @@ const renderCaptionStatus$ = pendingDescriptionCount$.pipe(
 );
 
 globalClick$.subscribe();
-renderCaptionStatus$.subscribe();
+merge(vision$, renderCaptionStatus$).subscribe();

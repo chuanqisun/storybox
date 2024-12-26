@@ -122,6 +122,24 @@ export class OpenAIRealtimeNode extends HTMLElement {
     return this;
   }
 
+  appendUserMessage(text: string) {
+    const event = {
+      type: "conversation.item.create",
+      item: {
+        type: "message",
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text,
+          },
+        ],
+      },
+    };
+    this.connection?.dc?.send(JSON.stringify(event));
+    return this;
+  }
+
   updateSession(update: any) {
     this.connection?.dc?.send(
       JSON.stringify({

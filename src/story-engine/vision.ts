@@ -106,6 +106,6 @@ export function getVision() {
   return {
     vision$,
     stableVision$,
-    pendingDescriptionCount$: pendingDescriptionCount$.asObservable().pipe(share()),
+    pendingDescriptionCount$: pendingDescriptionCount$.asObservable(),
   };
 }
