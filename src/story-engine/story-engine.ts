@@ -12,7 +12,6 @@ import {
   tap,
 } from "rxjs";
 import z from "zod";
-import { ElevenLabsTtsNode } from "../lib/ai-bar/lib/elements/eleven-labs-tts-node";
 import { LlmNode } from "../lib/ai-bar/lib/elements/llm-node";
 import type { OpenAIRealtimeNode } from "../lib/ai-bar/lib/elements/openai-realtime-node";
 import type { TogetherAINode } from "../lib/ai-bar/lib/elements/together-ai-node";
@@ -24,15 +23,14 @@ import { getVision } from "./vision";
 export interface StoryState {
   stage: "new" | "customizing" | "playing";
   style: "realistic" | "flet" | "paper" | "manga";
-  elements: StoryElement[];
+  characters: StoryCharacter[];
   scenes: StoryScene[];
   story: string;
   guests: StoryGuest[];
   vision: string;
 }
 
-export interface StoryElement {
-  type: "character" | "object";
+export interface StoryCharacter {
   sourceName: string;
   sourceDetails: string;
   targetName: string;
@@ -59,19 +57,18 @@ const togetherAINode = $<TogetherAINode>("together-ai-node")!;
 const visualOutput = $<HTMLImageElement>("#visual-output")!;
 const llmNode = $<LlmNode>("llm-node")!;
 const timeline = $<HTMLElement>("#timeline")!;
-const tts = $<ElevenLabsTtsNode>("eleven-labs-tts-node")!;
 
 const state$ = new BehaviorSubject<StoryState>({
   stage: "new",
   style: "realistic",
-  elements: [],
+  characters: [],
   scenes: [],
   story: "",
   guests: [],
   vision: "",
 });
 
-const claymationStyle = `A claymation-style image with a warm, autumnal color palette.  The lighting is soft and diffused, creating a gentle, almost nostalgic mood. The textures are highly tactile, emphasizing the handmade quality of the materials.  The overall aesthetic is whimsical and slightly surreal, with a focus on creating a sense of depth and detail despite the simplistic forms. The rendering style is painterly, with visible brushstrokes or sculpting marks adding to the handcrafted feel.  Colors are muted and slightly desaturated, with a predominance of oranges, browns, and greens.  The background is slightly blurred, drawing attention to the main focus.`;
+const claymationStyle = `A claymation-style image with a warm, autumnal color palette. The lighting is soft and diffused, creating a gentle, almost nostalgic mood. The textures are highly tactile, emphasizing the handmade quality of the materials.  The overall aesthetic is whimsical and slightly surreal, with a focus on creating a sense of depth and detail despite the simplistic forms. The rendering style is painterly, with visible brushstrokes or sculpting marks adding to the handcrafted feel.  Colors are muted and slightly desaturated, with a predominance of oranges, browns, and greens.  The background is slightly blurred, drawing attention to the main focus.`;
 const needleFeltedScene = `Render in Needle felted miniature scene. The color palette is muted and pastel, featuring various shades of orange, pink, green, and teal. The lighting is soft and diffused, creating a gentle, whimsical atmosphere. The overall style is reminiscent of children's book illustration, with a focus on texture and detail. The rendering is highly detailed, with a focus on the texture of the felt and the three-dimensionality of the miniature elements.  The scene is highly saturated, but the colors are soft and not harsh. The overall feel is cozy and inviting.`;
 const styles = [claymationStyle, needleFeltedScene];
 
@@ -130,7 +127,6 @@ export class StoryEngine {
         (state) =>
           html`${state.scenes.map(
             (scene, i) => html`
-              <h2>Scene ${i + 1}</h2>
               <div class="scene">
                 <img src="${scene.imageUrl ?? scene.placeholderImgUrl}" title="${scene.caption}" />
                 <p>${scene.narration}</p>
@@ -189,14 +185,13 @@ export class StoryEngine {
           .updateSessionInstructions(
             `
 You are a talented storyteller. You are developing a story with the user. 
-You and the user have agreed on using the following daily objects to represent elements in the story:
+You and the user have agreed on using the following daily objects to represent characters in the story:
 
-${state.elements
+${state.characters
   .map((ele) =>
     `
-Type: ${ele.type}
-Story element: ${ele.targetName} (${ele.targetDetails})
 Daily object: ${ele.sourceName} (${ele.sourceDetails})
+Character: ${ele.targetName} (${ele.targetDetails})
   `.trim(),
   )
   .join("\n\n")}
@@ -251,7 +246,7 @@ Now work with the user to develop the story one scene at a time.
 
   useCustomizerInstruction() {
     return state$.pipe(
-      distinct((state) => JSON.stringify([state.elements, state.vision])),
+      distinct((state) => JSON.stringify([state.characters, state.vision])),
       tap((state) => {
         realtime
           .addDraftTool({
@@ -274,10 +269,9 @@ Now work with the user to develop the story one scene at a time.
               }),
             }),
             run: (args) => {
-              const hasExisting = state$.value.elements.find((e) => e.targetName === args.inStory.name);
+              const hasExisting = state$.value.characters.find((e) => e.targetName === args.inStory.name);
 
-              const updatedElement: StoryElement = {
-                type: "character",
+              const updatedElement: StoryCharacter = {
                 sourceName: args.inRealLife.name,
                 sourceDetails: args.inRealLife.description,
                 targetName: args.inStory.name,
@@ -288,9 +282,9 @@ Now work with the user to develop the story one scene at a time.
 
               state$.next({
                 ...state$.value,
-                elements: hasExisting
-                  ? state$.value.elements.map((e) => (e.sourceName === args.inRealLife.name ? updatedElement : e))
-                  : [...state$.value.elements, updatedElement],
+                characters: hasExisting
+                  ? state$.value.characters.map((e) => (e.sourceName === args.inRealLife.name ? updatedElement : e))
+                  : [...state$.value.characters, updatedElement],
               });
 
               return `Memory updated. ${args.inRealLife.name} represents ${args.inStory.name} in the story.`;
@@ -313,10 +307,10 @@ Now work with the user to develop the story one scene at a time.
                 .describe("The updated name and description of the character in the story"),
             }),
             run: (args) => {
-              const existing = state$.value.elements.find((e) => e.targetName === args.currentInStoryName);
+              const existing = state$.value.characters.find((e) => e.targetName === args.currentInStoryName);
               if (!existing) return "Character not found";
 
-              const updatedElement: StoryElement = {
+              const updatedElement: StoryCharacter = {
                 ...existing,
                 targetName: args.inStory.name,
                 targetDetails: args.inStory.description,
@@ -326,7 +320,7 @@ Now work with the user to develop the story one scene at a time.
 
               state$.next({
                 ...state$.value,
-                elements: state$.value.elements.map((e) =>
+                characters: state$.value.characters.map((e) =>
                   e.targetName === args.currentInStoryName ? updatedElement : e,
                 ),
               });
@@ -357,19 +351,18 @@ Now work with the user to develop the story one scene at a time.
           .updateSessionInstructions(
             `
 You are a talented storyteller. You are helping user design the characters and objects of a story.
-The user will show you arbitrary objects they would like to use to represent the characters or objects in the story.
+The user will show you daily objects they would like to use to represent the characters in the story.
 Your job is to keep track of what each daily object represents in the story.
 
 ${
-  state.elements.length
+  state.characters.length
     ? `Here is your memory so far
 
-${state.elements
+${state.characters
   .map((ele) =>
     `
-Type: ${ele.type}
-Story element: ${ele.targetName} (${ele.targetDetails})
 Daily object: ${ele.sourceName} (${ele.sourceDetails})
+Character: ${ele.targetName} (${ele.targetDetails})
   `.trim(),
   )
   .join("\n\n")}`
@@ -395,7 +388,7 @@ Now interact with the user in one of the following ways:
       messages: [
         system`You are a talented story writer. Write a stunning narrative featuring these elements:
 
-${state$.value.elements.map((ele) => `${ele.targetName} (${ele.targetDetails})`).join("\n")}
+${state$.value.characters.map((ele) => `${ele.targetName} (${ele.targetDetails})`).join("\n")}
 
 You must write a high level narrative for the story and leave out all the details. The narrative should be one very concise paragraph.
 
