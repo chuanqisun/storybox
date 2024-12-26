@@ -24,7 +24,8 @@ export interface StoryState {
   stage: "new" | "customizing" | "playing";
   style: "realistic" | "flet" | "paper" | "manga";
   elements: StoryElement[];
-  chapters: StoryChapter[];
+  scenes: StoryScene[];
+  story: string;
   guests: StoryGuest[];
   vision: string;
 }
@@ -67,7 +68,8 @@ const state$ = new BehaviorSubject<StoryState>({
   stage: "new",
   style: "realistic",
   elements: [],
-  chapters: [],
+  scenes: [],
+  story: "",
   guests: [],
   vision: "",
 });
@@ -91,9 +93,10 @@ export class StoryEngine {
             case "playing":
               const timeline = this.usePlayerTimeline();
               const playerInstruction = this.usePlayerInstruction();
-              const playerVision = this.useInterruptVision();
+              const playerVision = this.useStableVision();
+              const incrementalVision = this.useIncrementalVision();
 
-              return merge(timeline, playerInstruction, playerVision);
+              return merge(timeline, playerInstruction, playerVision, incrementalVision);
           }
 
           return of();
@@ -115,18 +118,13 @@ export class StoryEngine {
     return state$.pipe(
       map(
         (state) =>
-          html`${state.chapters.map(
-            (chapter, i) => html`
-              <h2>Chapter ${i + 1}</h2>
-              <p>${chapter.summary}</p>
-              ${chapter.scenes.map(
-                (scene) => html`
-                  <div class="scene">
-                    <img src="${scene.imageUrl ?? scene.placeholderImgUrl}" title="${scene.caption}" />
-                    <p>${scene.narration}</p>
-                  </div>
-                `,
-              )}
+          html`${state.scenes.map(
+            (scene, i) => html`
+              <h2>Scene ${i + 1}</h2>
+              <div class="scene">
+                <img src="${scene.imageUrl ?? scene.placeholderImgUrl}" title="${scene.caption}" />
+                <p>${scene.narration}</p>
+              </div>
             `,
           )}`,
       ),
@@ -136,14 +134,14 @@ export class StoryEngine {
 
   usePlayerInstruction() {
     return state$.pipe(
-      distinct((state) => JSON.stringify([state.chapters, state.vision])),
+      distinct((state) => JSON.stringify([state.scenes, state.vision])),
       tap((state) => {
         realtime
           .addDraftTool({
             name: "develop_scene",
-            description: "Develop a new scene for the current chapter",
+            description: "Develop a new scene",
             parameters: z.object({
-              narration: z.string().describe("The story narration for the scene, one concise utterance"),
+              narration: z.string().describe("The story narration for the scene in one short sentence"),
               sceneDescription: z
                 .string()
                 .describe(
@@ -151,11 +149,6 @@ export class StoryEngine {
                 ),
             }),
             run: async (args) => {
-              const currentChapter =
-                state$.value.chapters.findLast((chapter) => chapter.scenes.length > 0) ?? state$.value.chapters.at(0);
-              if (!currentChapter) return "Error: No chapter found";
-              const currentChapterIndex = state$.value.chapters.findIndex((chapter) => chapter === currentChapter);
-
               const dataUrl = await togetherAINode.generateImageDataURL(
                 args.sceneDescription +
                   ` Render in Needle felted miniature scene. The color palette is muted and pastel, featuring various shades of orange, pink, green, and teal. The lighting is soft and diffused, creating a gentle, whimsical atmosphere. The overall style is reminiscent of children's book illustration, with a focus on texture and detail. The rendering is highly detailed, with a focus on the texture of the felt and the three-dimensionality of the miniature elements.  The scene is highly saturated, but the colors are soft and not harsh. The overall feel is cozy and inviting.`,
@@ -163,74 +156,17 @@ export class StoryEngine {
 
               state$.next({
                 ...state$.value,
-                chapters: state$.value.chapters.map((chapter) =>
-                  chapter === currentChapter
-                    ? {
-                        ...chapter,
-                        scenes: [
-                          ...chapter.scenes,
-                          {
-                            placeholderImgUrl: "",
-                            imageUrl: dataUrl,
-                            narration: args.narration,
-                            caption: args.sceneDescription,
-                          },
-                        ],
-                      }
-                    : chapter,
-                ),
+                scenes: [
+                  ...state$.value.scenes,
+                  {
+                    placeholderImgUrl: dataUrl,
+                    narration: args.narration,
+                    caption: args.sceneDescription,
+                  },
+                ],
               });
 
-              return `Chapter ${currentChapterIndex + 1} Scene ${state$.value.chapters.at(-1)?.scenes.length} developed. Please narrate: ${args.narration}`;
-            },
-          })
-          .addDraftTool({
-            name: "develop_next_chapter",
-            description: "Develop an opening scene for the next chapter",
-            parameters: z.object({
-              narration: z
-                .string()
-                .describe("The story narration for the chapter's opening scene, one concise utterance"),
-              sceneDescription: z
-                .string()
-                .describe(
-                  "An objective description of the subjects in the scene. Focus on physcial appearance, lighting, camera angle, etc",
-                ),
-            }),
-            run: async (args) => {
-              const newChapterIndex =
-                state$.value.chapters.findIndex((chapter) => chapter.scenes.length === 0) ??
-                state$.value.chapters.at(0);
-              const newChapter = state$.value.chapters[newChapterIndex];
-              if (!newChapter) return "Error: No chapter found";
-
-              const dataUrl = await togetherAINode.generateImageDataURL(
-                args.sceneDescription +
-                  ` Render in Needle felted miniature scene. The color palette is muted and pastel, featuring various shades of orange, pink, green, and teal. The lighting is soft and diffused, creating a gentle, whimsical atmosphere. The overall style is reminiscent of children's book illustration, with a focus on texture and detail. The rendering is highly detailed, with a focus on the texture of the felt and the three-dimensionality of the miniature elements.  The scene is highly saturated, but the colors are soft and not harsh. The overall feel is cozy and inviting.`,
-              );
-
-              state$.next({
-                ...state$.value,
-                chapters: state$.value.chapters.map((chapter) =>
-                  chapter === newChapter
-                    ? {
-                        ...chapter,
-                        scenes: [
-                          ...chapter.scenes,
-                          {
-                            placeholderImgUrl: dataUrl,
-                            narration: args.narration,
-                            caption: args.sceneDescription,
-                          },
-                        ],
-                      }
-                    : chapter,
-                ),
-              });
-
-              this.imagePrompt$.next(args.sceneDescription);
-
-              return `Chapter ${newChapterIndex + 1} Scene ${state$.value.chapters.at(-1)?.scenes.length} developed. Please narrate: ${args.narration}`;
+              return `Scene ${state$.value.scenes.length} developed. Make sure to read this back to the user: "${args.narration}"`;
             },
           })
           .addDraftTool({
@@ -246,7 +182,7 @@ export class StoryEngine {
           .updateSessionInstructions(
             `
 You are a talented storyteller. You are developing a story with the user. 
-You and the user have agreed on the symoblism for the objects:
+You and the user have agreed on using the following daily objects to represent elements in the story:
 
 ${state.elements
   .map((ele) =>
@@ -258,41 +194,18 @@ Daily object: ${ele.sourceName} (${ele.sourceDetails})
   )
   .join("\n\n")}
 
-Here is the story you have developed so far
-
-${state.chapters
-  .map((chapter, index) =>
-    `
-Chapter ${index + 1}
-Summary: ${chapter.summary}
-Scenes:${!chapter.scenes.length ? " No scene has been developed yet" : ""}
+This is the main story you must tell with the user: ${state.story}
 ${
-  chapter.scenes.length
-    ? chapter.scenes
-        .map((scene, i) =>
-          `
-  Scene ${i + 1} narration: ${scene.narration} 
-  Scene ${i + 1} description: ${scene.caption}
-  `.trim(),
-        )
-        .join("\n\n")
-    : ""
-}
+  state.scenes.length
+    ? `Here is the story you have developed so far:
+  ${state.scenes.map((scene, i) => `Scene ${i + 1}: ${scene.narration}`).join("\n")}`
+    : "You are ready to develop the first scene with the user."
 }
 
-Now work with the user to develop the story one scene at a time. 
-The user will show you objects they would like to use to steer the narrative of the story.
-Follow this process to develop the story:
-- Let user guide you with the objects they show and the words the say
-- Use develop_scene tool to develop a new scene for the current chapter. Do NOT deviate from the chapter's summary
-- With user's permission, use develop_next_chapter tool to start developing the next chapter
-- With user's permission, when you reach the end of the three chapter story, use end_story tool to end the story. Do NOT exceed three chapters
-
-The user is currently showing you: ${state.vision}
-          `.trim(),
-  )
-  .join("\n\n")}
-
+Now work with the user to develop the story one scene at a time.
+- Let user guide you with the objects they show and the words the say. The user is currently showing you: ${state.vision}
+- Use develop_scene tool to develop a new scene for the current chapter. Do NOT deviate from the overall story. After using the tool, read the narration back to the user.
+- With user's permission, when you reach the end of the three chapter story, use end_story tool to end the story. Do NOT exceed five scenes
           `.trim(),
           );
       }),
@@ -307,11 +220,10 @@ The user is currently showing you: ${state.vision}
     );
   }
 
-  useInterruptVision() {
+  useIncrementalVision() {
     return vision.stableVision$.pipe(
       tap((visionUpdate) => {
-        state$.next({ ...state$.value, vision: visionUpdate.description });
-        realtime.appendUserMessage(`I am showing you: ${visionUpdate.description}. Please develop a scene for it`);
+        realtime.appendUserMessage(`Now I'm showing you: ${visionUpdate.description}`);
       }),
     );
   }
@@ -382,15 +294,12 @@ The user is currently showing you: ${state.vision}
             description: "Start the story",
             parameters: z.object({}),
             run: () => {
-              const chapters = this.generateStory().then((chapters) => {
-                if (!chapters.length) return "Error generating stories. Tell user to change the story or try again.";
+              this.generateStory().then((story) => {
+                if (!story.length) return "Error generating stories. Tell user to change the story or try again.";
 
                 state$.next({
                   ...state$.value,
-                  chapters: chapters.map((chapter) => ({
-                    summary: chapter.summary,
-                    scenes: [],
-                  })),
+                  story,
                 });
 
                 this.changeStage("playing");
@@ -423,7 +332,7 @@ The user is currently showing you: ${state.vision}
 Now interact with the user in one of the following ways:
 - Chat with the user to help them find good every objects. Be creative and practical.
 - Use the upsert_character tool to update your memory with the new information.
-- With user's permission, use the start_story tool to start the story.
+- When user is ready, use the start_story tool to start the story. Do NOT start_story without user's explicit permission.
           `.trim(),
           );
       }),
@@ -438,14 +347,12 @@ Now interact with the user in one of the following ways:
 
 ${state$.value.elements.map((ele) => `${ele.targetName} (${ele.targetDetails})`).join("\n")}
 
-You must write a three chapter story. Focus on the story narrative for now and provide the one sentence summary for each chapter.
+You must write a high level narrative for the story and leave out all the details. The narrative should be one very concise paragraph.
 
-Respond in valid JSON, with the following type interface
+Respond in valid JSON, with the following type interface:
 
 {
-  chapters: {
-    summary: string; // one sentence summary of the chapter
-  }[]
+  story: string;
 }
         
         `,
@@ -456,11 +363,11 @@ Respond in valid JSON, with the following type interface
       },
     });
 
-    const parsedChapters = tryParse<{ chapters: { summary: string }[] }>(story.choices[0].message.content!, {
-      chapters: [],
-    }).chapters;
+    const parsedStory = tryParse<{ story: string }>(story.choices[0].message.content!, {
+      story: "",
+    }).story;
 
-    return parsedChapters;
+    return parsedStory;
   }
 
   changeStage(status: StoryState["stage"]) {

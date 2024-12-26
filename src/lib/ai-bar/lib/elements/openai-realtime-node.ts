@@ -110,6 +110,7 @@ export class OpenAIRealtimeNode extends HTMLElement {
   }
 
   updateSessionInstructions(instructions: string) {
+    console.log(`[realtime] instruction changed`, instructions);
     this.connection?.dc?.send(
       JSON.stringify({
         type: "session.update",
