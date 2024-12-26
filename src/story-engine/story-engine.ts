@@ -12,6 +12,7 @@ import {
   tap,
 } from "rxjs";
 import z from "zod";
+import { ElevenLabsTtsNode } from "../lib/ai-bar/lib/elements/eleven-labs-tts-node";
 import { LlmNode } from "../lib/ai-bar/lib/elements/llm-node";
 import type { OpenAIRealtimeNode } from "../lib/ai-bar/lib/elements/openai-realtime-node";
 import type { TogetherAINode } from "../lib/ai-bar/lib/elements/together-ai-node";
@@ -58,6 +59,7 @@ const togetherAINode = $<TogetherAINode>("together-ai-node")!;
 const visualOutput = $<HTMLImageElement>("#visual-output")!;
 const llmNode = $<LlmNode>("llm-node")!;
 const timeline = $<HTMLElement>("#timeline")!;
+const tts = $<ElevenLabsTtsNode>("eleven-labs-tts-node")!;
 
 const state$ = new BehaviorSubject<StoryState>({
   stage: "new",
