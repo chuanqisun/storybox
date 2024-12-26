@@ -115,3 +115,15 @@ menu {
   align-items: center;
   gap: 0.25rem;
 }
+
+main {
+  * {
+    display: none;
+  }
+
+  *:last-of-type {
+    width: 100%;
+    display: block;
+    opacity: 1;
+  }
+}

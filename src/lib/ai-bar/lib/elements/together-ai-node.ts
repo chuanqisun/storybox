@@ -24,6 +24,7 @@ export class TogetherAINode extends HTMLElement {
 
     const response = await together.images.create({
       model: "black-forest-labs/FLUX.1-schnell-Free",
+      // model: "black-forest-labs/FLUX.1-schnell",
       prompt: prompt,
       width: options?.width ?? 400,
       height: options?.height ?? 400,

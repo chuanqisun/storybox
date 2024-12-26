@@ -38,11 +38,6 @@ export interface StoryElement {
   targetDetails: string;
 }
 
-export interface StoryChapter {
-  summary: string;
-  scenes: StoryScene[];
-}
-
 export interface StoryScene {
   placeholderImgUrl: string;
   imageUrl?: string;
@@ -74,6 +69,10 @@ const state$ = new BehaviorSubject<StoryState>({
   vision: "",
 });
 
+const claymationStyle = `A claymation-style image with a warm, autumnal color palette.  The lighting is soft and diffused, creating a gentle, almost nostalgic mood. The textures are highly tactile, emphasizing the handmade quality of the materials.  The overall aesthetic is whimsical and slightly surreal, with a focus on creating a sense of depth and detail despite the simplistic forms. The rendering style is painterly, with visible brushstrokes or sculpting marks adding to the handcrafted feel.  Colors are muted and slightly desaturated, with a predominance of oranges, browns, and greens.  The background is slightly blurred, drawing attention to the main focus.`;
+const needleFeltedScene = `Render in Needle felted miniature scene. The color palette is muted and pastel, featuring various shades of orange, pink, green, and teal. The lighting is soft and diffused, creating a gentle, whimsical atmosphere. The overall style is reminiscent of children's book illustration, with a focus on texture and detail. The rendering is highly detailed, with a focus on the texture of the felt and the three-dimensionality of the miniature elements.  The scene is highly saturated, but the colors are soft and not harsh. The overall feel is cozy and inviting.`;
+const styles = [claymationStyle, needleFeltedScene];
+
 export class StoryEngine {
   private subs: Subscription[] = [];
   private imagePrompt$ = new Subject<string>();
@@ -85,18 +84,25 @@ export class StoryEngine {
         distinctUntilKeyChanged("stage"),
         switchMap(({ stage: status }) => {
           switch (status) {
-            case "customizing":
+            case "customizing": {
               const customizerVision = this.useStableVision();
               const customizerInstruction = this.useCustomizerInstruction();
               const customizerVisualOutput = this.useCustomizerVisualOutput();
-              return merge(customizerVision, customizerInstruction, customizerVisualOutput);
-            case "playing":
+              const incrementalVision = this.useIncrementalVision();
+              return merge(customizerVision, customizerInstruction, customizerVisualOutput, incrementalVision);
+            }
+            case "playing": {
               const timeline = this.usePlayerTimeline();
               const playerInstruction = this.usePlayerInstruction();
               const playerVision = this.useStableVision();
               const incrementalVision = this.useIncrementalVision();
 
+              setTimeout(() => {
+                realtime.appendUserMessage("Please create the opening scene now").createResponse();
+              }, 1000);
+
               return merge(timeline, playerInstruction, playerVision, incrementalVision);
+            }
           }
 
           return of();
@@ -138,21 +144,18 @@ export class StoryEngine {
       tap((state) => {
         realtime
           .addDraftTool({
-            name: "develop_scene",
+            name: "continue_story",
             description: "Develop a new scene",
             parameters: z.object({
               narration: z.string().describe("The story narration for the scene in one short sentence"),
               sceneDescription: z
                 .string()
                 .describe(
-                  "An objective description of the subjects in the scene. Focus on physcial appearance, relations of objects, camera angle, lighting etc",
+                  "A visual depiction of the scene in the story. Use your best imagination to fill in the appearance, relations of the characters, camera angle, lighting, surrounding. Do NOT mention everyday objects themselves. Instead, focus on what they represent",
                 ),
             }),
             run: async (args) => {
-              const dataUrl = await togetherAINode.generateImageDataURL(
-                args.sceneDescription +
-                  ` Render in Needle felted miniature scene. The color palette is muted and pastel, featuring various shades of orange, pink, green, and teal. The lighting is soft and diffused, creating a gentle, whimsical atmosphere. The overall style is reminiscent of children's book illustration, with a focus on texture and detail. The rendering is highly detailed, with a focus on the texture of the felt and the three-dimensionality of the miniature elements.  The scene is highly saturated, but the colors are soft and not harsh. The overall feel is cozy and inviting.`,
-              );
+              const dataUrl = await togetherAINode.generateImageDataURL(`${args.sceneDescription} ${claymationStyle}`);
 
               state$.next({
                 ...state$.value,
@@ -166,7 +169,7 @@ export class StoryEngine {
                 ],
               });
 
-              return `Scene ${state$.value.scenes.length} developed. Make sure to read this back to the user: "${args.narration}"`;
+              return `Scene ${state$.value.scenes.length} created. You must now respond with the narration: "${args.narration}"`;
             },
           })
           .addDraftTool({
@@ -198,14 +201,17 @@ This is the main story you must tell with the user: ${state.story}
 ${
   state.scenes.length
     ? `Here is the story you have developed so far:
-  ${state.scenes.map((scene, i) => `Scene ${i + 1}: ${scene.narration}`).join("\n")}`
+${state.scenes.map((scene, i) => `Scene ${i + 1}: ${scene.narration}`).join("\n")}`
     : "You are ready to develop the first scene with the user."
 }
 
 Now work with the user to develop the story one scene at a time.
 - Let user guide you with the objects they show and the words the say. The user is currently showing you: ${state.vision}
-- Use develop_scene tool to develop a new scene for the current chapter. Do NOT deviate from the overall story. After using the tool, read the narration back to the user.
-- With user's permission, when you reach the end of the three chapter story, use end_story tool to end the story. Do NOT exceed five scenes
+- Always use continue_story tool to continue the story:
+  - When developing the narration, do NOT deviate from the overall story.
+  - When writing scene visual description, do NOT mention the daily objects themselves. Instead, focus on what they represent. Include details about their imaginary appearance, position, relation to the scene and each other, their color, shape, size,. Also mention camera angle, lighting, to help people visualize it.
+  - After using the tool, you MUST respond with the narration
+- With user's permission, when you reach the end of the story, use end_story tool to end the story. Do NOT exceed five scenes
           `.trim(),
           );
       }),
@@ -233,10 +239,7 @@ Now work with the user to develop the story one scene at a time.
       switchMap(async (prompt) => {
         // TODO implement abort control
         // TODO store the image with the character
-        const dataUrl = await togetherAINode.generateImageDataURL(
-          prompt +
-            ` Render in Needle felted miniature scene. The color palette is muted and pastel, featuring various shades of orange, pink, green, and teal. The lighting is soft and diffused, creating a gentle, whimsical atmosphere. The overall style is reminiscent of children's book illustration, with a focus on texture and detail. The rendering is highly detailed, with a focus on the texture of the felt and the three-dimensionality of the miniature elements.  The scene is highly saturated, but the colors are soft and not harsh. The overall feel is cozy and inviting.`,
-        );
+        const dataUrl = await togetherAINode.generateImageDataURL(prompt + ` ${claymationStyle}`);
         visualOutput.src = dataUrl;
       }),
     );
@@ -248,8 +251,8 @@ Now work with the user to develop the story one scene at a time.
       tap((state) => {
         realtime
           .addDraftTool({
-            name: "upsert_character",
-            description: "Crreate or Update a character in the story",
+            name: "create_character",
+            description: "Crreate a character in the story",
             parameters: z.object({
               inStory: z.object({
                 name: z.string().describe("The name the character in the story"),
@@ -290,6 +293,44 @@ Now work with the user to develop the story one scene at a time.
             },
           })
           .addDraftTool({
+            name: "change_character",
+            description: "Change a character in the story",
+            parameters: z.object({
+              currentInStoryName: z.string().describe("The current name of the character in the story"),
+              inStory: z
+                .object({
+                  name: z.string().describe("The name the character in the story"),
+                  description: z
+                    .string()
+                    .describe(
+                      "Detailed description of the character, including age, ethnicity, gender, skin color, facial features, body build, hair style and color, clothing, etc",
+                    ),
+                })
+                .describe("The updated name and description of the character in the story"),
+            }),
+            run: (args) => {
+              const existing = state$.value.elements.find((e) => e.targetName === args.currentInStoryName);
+              if (!existing) return "Character not found";
+
+              const updatedElement: StoryElement = {
+                ...existing,
+                targetName: args.inStory.name,
+                targetDetails: args.inStory.description,
+              };
+
+              this.imagePrompt$.next(updatedElement.targetDetails);
+
+              state$.next({
+                ...state$.value,
+                elements: state$.value.elements.map((e) =>
+                  e.targetName === args.currentInStoryName ? updatedElement : e,
+                ),
+              });
+
+              return `Memory updated. ${existing.sourceName} now represents ${args.inStory.name} in the story.`;
+            },
+          })
+          .addDraftTool({
             name: "start_story",
             description: "Start the story",
             parameters: z.object({}),
@@ -305,7 +346,7 @@ Now work with the user to develop the story one scene at a time.
                 this.changeStage("playing");
               });
 
-              return "Tell the user they can open the first chapter now.";
+              return "Tell the use the story will start now.";
             },
           })
           .commitDraftTools()
@@ -315,7 +356,9 @@ You are a talented storyteller. You are helping user design the characters and o
 The user will show you arbitrary objects they would like to use to represent the characters or objects in the story.
 Your job is to keep track of what each daily object represents in the story.
 
-Here is your memory so far
+${
+  state.elements.length
+    ? `Here is your memory so far
 
 ${state.elements
   .map((ele) =>
@@ -325,13 +368,16 @@ Story element: ${ele.targetName} (${ele.targetDetails})
 Daily object: ${ele.sourceName} (${ele.sourceDetails})
   `.trim(),
   )
-  .join("\n\n")}
+  .join("\n\n")}`
+    : ""
+}
 
 The user is currently showing you: ${state.vision}
 
 Now interact with the user in one of the following ways:
 - Chat with the user to help them find good every objects. Be creative and practical.
-- Use the upsert_character tool to update your memory with the new information.
+- Use the create_character tool to update your memory with the new information.
+- Use change_character tool to update your memory with the new information.
 - When user is ready, use the start_story tool to start the story. Do NOT start_story without user's explicit permission.
           `.trim(),
           );
