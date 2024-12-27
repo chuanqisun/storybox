@@ -275,7 +275,17 @@ export class OpenAIRealtimeNode extends HTMLElement {
     return data.client_secret.value as string;
   }
 
-  mute() {
+  interrupt() {
+    this.connection?.dc?.send(
+      JSON.stringify({
+        type: "response.cancel",
+      }),
+    );
+
+    return this;
+  }
+
+  muteMicrophone() {
     this.connection?.pc?.getSenders().forEach((sender) => {
       if (sender.track && sender.track.kind === "audio") {
         sender.track.enabled = false;
@@ -283,10 +293,26 @@ export class OpenAIRealtimeNode extends HTMLElement {
     });
   }
 
-  unmute() {
+  unmuteMicrophone() {
     this.connection?.pc?.getSenders().forEach((sender) => {
       if (sender.track && sender.track.kind === "audio") {
         sender.track.enabled = true;
+      }
+    });
+  }
+
+  muteSpeaker() {
+    this.connection?.pc?.getReceivers().forEach((receiver) => {
+      if (receiver.track && receiver.track.kind === "audio") {
+        receiver.track.enabled = false;
+      }
+    });
+  }
+
+  unmuteSpeaker() {
+    this.connection?.pc?.getReceivers().forEach((receiver) => {
+      if (receiver.track && receiver.track.kind === "audio") {
+        receiver.track.enabled = true;
       }
     });
   }

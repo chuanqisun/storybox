@@ -52,13 +52,13 @@ const globalClick$ = fromEvent(document, "click").pipe(
       case "mute": {
         muteButton.textContent = "Unmute";
         muteButton.dataset.action = "unmute";
-        await realtime.mute();
+        await realtime.muteMicrophone();
         break;
       }
       case "unmute": {
         muteButton.textContent = "Mute";
         muteButton.dataset.action = "mute";
-        await realtime.unmute();
+        await realtime.unmuteMicrophone();
         break;
       }
       case "enable-camera": {

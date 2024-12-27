@@ -475,7 +475,6 @@ ${guestAvatars.map((avatar, i) => `Guest ${i + 1}: ${avatar.getAttribute("data-n
   useGuestInterview() {
     let currentGuest: AvatarElement | null = null;
     let currentTasks: AbortController[] = [];
-    let currentSubs: Subscription[] = [];
 
     const getAvatarName = (e: Event) => (e.target as HTMLElement).closest("avatar-element") as AvatarElement;
 
@@ -485,9 +484,12 @@ ${guestAvatars.map((avatar, i) => `Guest ${i + 1}: ${avatar.getAttribute("data-n
       tap((avatar) => {
         currentGuest = avatar;
         azureSttNode.start();
+        azureTtsNode.clear(); // intent to interrupt
         currentTasks.forEach((task) => task.abort());
         currentTasks = [];
-        realtime.mute();
+        realtime.muteMicrophone();
+        realtime.interrupt();
+        AvatarElement.setSpeaking(undefined, false);
       }),
     );
     const mouseUp$ = fromEvent(guests, "mouseup").pipe(
@@ -495,46 +497,40 @@ ${guestAvatars.map((avatar, i) => `Guest ${i + 1}: ${avatar.getAttribute("data-n
       filter((name) => !!name),
       tap(() => {
         azureSttNode.stop();
-        realtime.unmute();
+        realtime.unmuteMicrophone();
       }),
     );
 
     const updateSpeakingVoice$ = fromEvent<CustomEvent<StateChangeEventDetail>>(azureTtsNode, "statechange").pipe(
       tap((event) => {
         const { voice, isOn } = (event as CustomEvent<StateChangeEventDetail>).detail;
-        $all<AvatarElement>(`avatar-element[data-speaking]`).forEach((e) => {
-          const avatarVoice = e.getAttribute("data-voice-id");
-          if (avatarVoice === voice && isOn) {
-            e.setAttribute("data-speaking", "");
-          } else {
-            e.removeAttribute("data-speaking");
-          }
-        });
+        AvatarElement.setSpeaking(voice, isOn);
       }),
     );
 
     const handleUserSpeech$ = fromEvent<CustomEvent<AIBarEventDetail>>(azureSttNode, "event").pipe(
       tap(async (event) => {
         if (!event.detail.recognized) return;
-        event.stopPropagation();
 
-        if (!event.detail.recognized.text) {
-          // TODO: handle this as user's intent to interrupt
-          azureTtsNode.clear();
-        } else {
-          const recognizedText = event.detail.recognized.text;
-          console.log({ recognizedText });
+        // unconditionally intercept all speech events
+        event.preventDefault();
+        event.stopImmediatePropagation();
 
-          const latestScene = state$.value.scenes.at(-1)!;
+        if (!event.detail.recognized?.text) return;
 
-          const that = this;
+        const recognizedText = event.detail.recognized.text;
+        console.log({ recognizedText });
 
-          const abortController = new AbortController();
-          currentTasks.push(abortController);
-          const response = await llmNode.getClient("aoai").beta.chat.completions.runTools(
-            {
-              messages: [
-                system`
+        const latestScene = state$.value.scenes.at(-1)!;
+
+        const that = this;
+
+        const abortController = new AbortController();
+        currentTasks.push(abortController);
+        const response = await llmNode.getClient("aoai").beta.chat.completions.runTools(
+          {
+            messages: [
+              system`
 Simulate an audience interview during a storytelling event. The user is interviewing the following audience:
 ${state$.value.guests.map((guest) => `${guest.name} (${guest.background})`).join("\n")}
 
@@ -546,59 +542,58 @@ The user is pointing the microphone at ${currentGuest?.getAttribute("data-name")
 
 Now use the speak_as tool to simulate the audience response. Do NOT add additional response after using the tool.
               `,
-                user`${recognizedText}`,
-              ],
-              model: "gpt-4o",
-              tools: [
-                {
-                  type: "function",
-                  function: {
-                    function: function speak_as(props: { name: string; utterance: string }) {
-                      azureTtsNode
-                        .queue(props.utterance, {
-                          voice: $<AvatarElement>(`avatar-element[data-name="${props.name}"]`)?.getAttribute(
-                            "data-voice-id",
-                          )!,
-                        })
-                        .then(() => {
-                          that.history.push(`${props.name}: ${props.utterance}`);
-                          console.log(`${props.name}: ${props.utterance}`);
-                        });
+              user`${recognizedText}`,
+            ],
+            model: "gpt-4o",
+            tools: [
+              {
+                type: "function",
+                function: {
+                  function: function speak_as(props: { name: string; utterance: string }) {
+                    azureTtsNode
+                      .queue(props.utterance, {
+                        voice: $<AvatarElement>(`avatar-element[data-name="${props.name}"]`)?.getAttribute(
+                          "data-voice-id",
+                        )!,
+                      })
+                      .then(() => {
+                        that.history.push(`${props.name}: ${props.utterance}`);
+                        console.log(`${props.name}: ${props.utterance}`);
+                      });
 
-                      return `${props.name} ended speaking`;
-                    },
-                    description: "Speak as one of the guests",
-                    parse: JSON.parse,
+                    return `${props.name} ended speaking`;
+                  },
+                  description: "Speak as one of the guests",
+                  parse: JSON.parse,
 
-                    parameters: {
-                      type: "object",
-                      required: ["name", "utterance"],
-                      properties: {
-                        name: {
-                          type: "string",
-                          description: "Name of the character",
-                          enum: state$.value.guests.map((guest) => guest.name),
-                        },
-                        utterance: {
-                          type: "string",
-                          description: "One sentence brief utterance",
-                        },
+                  parameters: {
+                    type: "object",
+                    required: ["name", "utterance"],
+                    properties: {
+                      name: {
+                        type: "string",
+                        description: "Name of the character",
+                        enum: state$.value.guests.map((guest) => guest.name),
+                      },
+                      utterance: {
+                        type: "string",
+                        description: "One sentence brief utterance",
                       },
                     },
                   },
                 },
-              ],
-            },
-            {
-              signal: abortController.signal,
-            },
-          );
+              },
+            ],
+          },
+          {
+            signal: abortController.signal,
+          },
+        );
 
-          // store user speech after the response is generated
-          this.history.push(`User: ${recognizedText}`);
+        // store user speech after the response is generated
+        this.history.push(`User: ${recognizedText}`);
 
-          await response.finalContent();
-        }
+        await response.finalContent();
       }),
     );
 

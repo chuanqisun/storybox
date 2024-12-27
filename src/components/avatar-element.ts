@@ -1,6 +1,7 @@
 import { micah } from "@dicebear/collection";
 import { createAvatar } from "@dicebear/core";
 
+import { $all } from "../lib/dom";
 import "./avatar-element.css";
 
 const people = [
@@ -36,6 +37,17 @@ export function defineAvatarElement() {
 }
 
 export class AvatarElement extends HTMLElement {
+  static setSpeaking(voice: string | undefined, isSpeaking: boolean) {
+    $all<AvatarElement>(`avatar-element[data-voice-id]`).forEach((e) => {
+      const avatarVoice = e.getAttribute("data-voice-id");
+      if (avatarVoice === voice && isSpeaking) {
+        e.setAttribute("data-speaking", "");
+      } else {
+        e.removeAttribute("data-speaking");
+      }
+    });
+  }
+
   static observedAttributes = ["data-name", "data-mouth"];
 
   constructor() {
