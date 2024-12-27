@@ -21,7 +21,7 @@ import { tryParse } from "../lib/parse";
 import { getVision } from "./vision";
 
 export interface StoryState {
-  stage: "new" | "customizing" | "playing" | "premiere";
+  stage: "new" | "customizing" | "editing" | "premiere";
   style: "realistic" | "flet" | "paper" | "manga";
   characters: StoryCharacter[];
   scenes: StoryScene[];
@@ -91,23 +91,28 @@ export class StoryEngine {
             case "customizing": {
               return merge(
                 this.useStableVision(),
-                this.useCustomizerInstruction(),
-                this.useCustomizerVisualOutput(),
+                this.useCharacterBuilderInstruction(),
+                this.useCharactersDisplay(),
                 this.useIncrementalVision(),
                 this.useCharacterGrid(),
               );
             }
-            case "playing": {
+            case "editing": {
               setTimeout(() => {
                 realtime.appendUserMessage("Please create the opening scene now").createResponse();
               }, 1000);
 
               return merge(
-                this.usePlayerTimeline(),
-                this.usePlayerInstruction(),
+                this.useSceneDisplay(),
+                this.useSceneEditorInstruction(),
                 this.useStableVision(),
                 this.useIncrementalVision(),
               );
+            }
+
+            case "premiere": {
+              // Add logic for the premiere stage here
+              return of();
             }
           }
 
@@ -134,7 +139,237 @@ export class StoryEngine {
     );
   }
 
-  usePlayerTimeline() {
+  useStableVision() {
+    return vision.stableVision$.pipe(
+      tap((visionUpdate) => {
+        state$.next({ ...state$.value, vision: visionUpdate.description });
+      }),
+    );
+  }
+
+  useIncrementalVision() {
+    return vision.stableVision$.pipe(
+      tap((visionUpdate) => {
+        realtime.appendUserMessage(`Now I'm showing you: ${visionUpdate.description}`);
+      }),
+    );
+  }
+
+  useCharactersDisplay() {
+    return characterImagePrompt$.pipe(
+      switchMap(async (prompt) => {
+        togetherAINode.generateImageDataURL(prompt.characterDescription + ` ${claymationStyle}`).then((dataUrl) => {
+          state$.next({
+            ...state$.value,
+            characters: state$.value.characters.map((e) =>
+              e.characterName === prompt.characterName ? { ...e, imageUrl: dataUrl } : e,
+            ),
+          });
+        });
+      }),
+    );
+  }
+
+  useCharacterBuilderInstruction() {
+    return state$.pipe(
+      distinct((state) => JSON.stringify([state.characters, state.vision])),
+      tap((state) => {
+        realtime
+          .addDraftTool({
+            name: "create_character",
+            description: "Create a character in the story",
+            parameters: z.object({
+              dailyObject: z.string().describe("The real world object the user has shown"),
+              characterName: z.string().describe("The name the character in the story"),
+              characterDescription: z
+                .string()
+                .describe(
+                  "Detailed description of the character, including age, ethnicity, gender, skin color, facial features, body build, hair style and color, clothing, etc",
+                ),
+            }),
+            run: (args) => {
+              const newCharacter: StoryCharacter = {
+                dailyObject: args.dailyObject,
+                characterName: args.characterName,
+                characterDescription: args.characterDescription,
+              };
+
+              state$.next({
+                ...state$.value,
+                characters: [...state$.value.characters, newCharacter],
+              });
+
+              characterImagePrompt$.next({
+                characterName: args.characterName,
+                characterDescription: args.characterDescription,
+              });
+
+              return `Character added: ${args.dailyObject} represents ${args.characterName} (${args.characterDescription})`;
+            },
+          })
+          .addDraftTool({
+            name: "remove_character",
+            description: "Remove a character in the story",
+            parameters: z.object({
+              characterName: z.string().describe("The name of the character in the story"),
+            }),
+            run: (args) => {
+              const existing = state$.value.characters.find((e) => e.characterName === args.characterName);
+              if (!existing) return "Character not found";
+
+              state$.next({
+                ...state$.value,
+                characters: state$.value.characters.filter((e) => e.characterName !== args.characterName),
+              });
+
+              return `Character ${args.characterName} is removed.`;
+            },
+          })
+          .addDraftTool({
+            name: "change_character",
+            description: "Change a character in the story",
+            parameters: z.object({
+              previousCharacterName: z.string().describe("The current name of the character in the story"),
+              update: z
+                .object({
+                  characterName: z.string().describe("The name the character in the story"),
+                  characterDescription: z
+                    .string()
+                    .describe(
+                      "Detailed description of the character, including age, ethnicity, gender, skin color, facial features, body build, hair style and color, clothing, etc",
+                    ),
+                })
+                .describe("The updated name and description of the character in the story"),
+            }),
+            run: (args) => {
+              const existing = state$.value.characters.find((e) => e.characterName === args.previousCharacterName);
+              if (!existing) return "Character not found";
+
+              const updatedElement: StoryCharacter = {
+                ...existing,
+                characterName: args.update.characterName,
+                characterDescription: args.update.characterDescription,
+              };
+
+              characterImagePrompt$.next({
+                characterName: args.update.characterName,
+                characterDescription: updatedElement.characterDescription,
+              });
+
+              state$.next({
+                ...state$.value,
+                characters: state$.value.characters.map((e) =>
+                  e.characterName === args.previousCharacterName ? updatedElement : e,
+                ),
+              });
+
+              return `Character changed: ${existing.dailyObject} now represents ${args.update.characterName} in the story.`;
+            },
+          })
+          .addDraftTool({
+            name: "start_story",
+            description: "Start the story",
+            parameters: z.object({}),
+            run: () => {
+              this.generateStory().then((story) => {
+                if (!story.length) return "Error generating stories. Tell user to change the story or try again.";
+
+                state$.next({
+                  ...state$.value,
+                  story,
+                });
+
+                this.changeStage("editing");
+              });
+
+              return "Tell the use the story will start now.";
+            },
+          })
+          .commitDraftTools()
+          .updateSessionInstructions(
+            `
+You are a talented storyteller. You are helping user design the characters and objects of a story.
+The user will show you daily objects they would like to use to represent the characters in the story.
+Your job is to keep track of what each daily object represents in the story.
+
+${
+  state.characters.length
+    ? `Here is what you and user have agreed on so far:
+
+${state.characters
+  .map((ele) =>
+    `
+Daily object: ${ele.dailyObject} 
+Character: ${ele.characterName} (${ele.characterDescription})
+  `.trim(),
+  )
+  .join("\n\n")}`
+    : ""
+}
+
+The user is currently showing you: ${state.vision}
+
+Now interact with the user in one of the following ways:
+- Use the create_character tool to update your memory with the new information.
+- Use change_character or remove_character tool to update your memory with the latest instruction from the user
+- When user is ready, use the start_story tool to start the story. Do NOT start_story without user's explicit permission.
+
+After each tool use, you MUST concisely tell user what you did.
+          `.trim(),
+          );
+      }),
+    );
+  }
+
+  useCharacterGrid() {
+    return state$.pipe(
+      map(
+        (state) =>
+          html`${state.characters.map(
+            (character) => html`
+              <div class="media-card">
+                <img src="${character.imageUrl ?? `https://placehold.co/400?text=Sketching...`}" />
+                <p>${character.characterName}</p>
+              </div>
+            `,
+          )}`,
+      ),
+      tap((htmlTemplate) => render(htmlTemplate, charactersGrid)),
+    );
+  }
+
+  async generateStory() {
+    const aoai = llmNode.getClient("aoai");
+    const story = await aoai.chat.completions.create({
+      messages: [
+        system`You are a talented story writer. Write a stunning narrative featuring these elements:
+
+${state$.value.characters.map((ele) => `${ele.characterName} (${ele.characterDescription})`).join("\n")}
+
+You must write a high level narrative for the story and leave out all the details. The narrative should be one very concise paragraph.
+
+Respond in valid JSON, with the following type interface:
+
+{
+  story: string;
+}
+        
+        `,
+      ],
+      model: "gpt-4o",
+      response_format: {
+        type: "json_object",
+      },
+    });
+
+    const parsedStory = tryParse<{ story: string }>(story.choices[0].message.content!, {
+      story: "",
+    }).story;
+
+    return parsedStory;
+  }
+
+  useSceneDisplay() {
     return state$.pipe(
       map(
         (state) =>
@@ -151,7 +386,7 @@ export class StoryEngine {
     );
   }
 
-  usePlayerInstruction() {
+  useSceneEditorInstruction() {
     return state$.pipe(
       distinct((state) => JSON.stringify([state.scenes, state.vision])),
       tap((state) => {
@@ -267,236 +502,6 @@ Now work with the user to develop the story one scene at a time.
           );
       }),
     );
-  }
-
-  useStableVision() {
-    return vision.stableVision$.pipe(
-      tap((visionUpdate) => {
-        state$.next({ ...state$.value, vision: visionUpdate.description });
-      }),
-    );
-  }
-
-  useIncrementalVision() {
-    return vision.stableVision$.pipe(
-      tap((visionUpdate) => {
-        realtime.appendUserMessage(`Now I'm showing you: ${visionUpdate.description}`);
-      }),
-    );
-  }
-
-  useCustomizerVisualOutput() {
-    return characterImagePrompt$.pipe(
-      switchMap(async (prompt) => {
-        togetherAINode.generateImageDataURL(prompt.characterDescription + ` ${claymationStyle}`).then((dataUrl) => {
-          state$.next({
-            ...state$.value,
-            characters: state$.value.characters.map((e) =>
-              e.characterName === prompt.characterName ? { ...e, imageUrl: dataUrl } : e,
-            ),
-          });
-        });
-      }),
-    );
-  }
-
-  useCustomizerInstruction() {
-    return state$.pipe(
-      distinct((state) => JSON.stringify([state.characters, state.vision])),
-      tap((state) => {
-        realtime
-          .addDraftTool({
-            name: "create_character",
-            description: "Create a character in the story",
-            parameters: z.object({
-              dailyObject: z.string().describe("The real world object the user has shown"),
-              characterName: z.string().describe("The name the character in the story"),
-              characterDescription: z
-                .string()
-                .describe(
-                  "Detailed description of the character, including age, ethnicity, gender, skin color, facial features, body build, hair style and color, clothing, etc",
-                ),
-            }),
-            run: (args) => {
-              const newCharacter: StoryCharacter = {
-                dailyObject: args.dailyObject,
-                characterName: args.characterName,
-                characterDescription: args.characterDescription,
-              };
-
-              state$.next({
-                ...state$.value,
-                characters: [...state$.value.characters, newCharacter],
-              });
-
-              characterImagePrompt$.next({
-                characterName: args.characterName,
-                characterDescription: args.characterDescription,
-              });
-
-              return `Character added: ${args.dailyObject} represents ${args.characterName} (${args.characterDescription})`;
-            },
-          })
-          .addDraftTool({
-            name: "remove_character",
-            description: "Remove a character in the story",
-            parameters: z.object({
-              characterName: z.string().describe("The name of the character in the story"),
-            }),
-            run: (args) => {
-              const existing = state$.value.characters.find((e) => e.characterName === args.characterName);
-              if (!existing) return "Character not found";
-
-              state$.next({
-                ...state$.value,
-                characters: state$.value.characters.filter((e) => e.characterName !== args.characterName),
-              });
-
-              return `Character ${args.characterName} is removed.`;
-            },
-          })
-          .addDraftTool({
-            name: "change_character",
-            description: "Change a character in the story",
-            parameters: z.object({
-              previousCharacterName: z.string().describe("The current name of the character in the story"),
-              update: z
-                .object({
-                  characterName: z.string().describe("The name the character in the story"),
-                  characterDescription: z
-                    .string()
-                    .describe(
-                      "Detailed description of the character, including age, ethnicity, gender, skin color, facial features, body build, hair style and color, clothing, etc",
-                    ),
-                })
-                .describe("The updated name and description of the character in the story"),
-            }),
-            run: (args) => {
-              const existing = state$.value.characters.find((e) => e.characterName === args.previousCharacterName);
-              if (!existing) return "Character not found";
-
-              const updatedElement: StoryCharacter = {
-                ...existing,
-                characterName: args.update.characterName,
-                characterDescription: args.update.characterDescription,
-              };
-
-              characterImagePrompt$.next({
-                characterName: args.update.characterName,
-                characterDescription: updatedElement.characterDescription,
-              });
-
-              state$.next({
-                ...state$.value,
-                characters: state$.value.characters.map((e) =>
-                  e.characterName === args.previousCharacterName ? updatedElement : e,
-                ),
-              });
-
-              return `Character changed: ${existing.dailyObject} now represents ${args.update.characterName} in the story.`;
-            },
-          })
-          .addDraftTool({
-            name: "start_story",
-            description: "Start the story",
-            parameters: z.object({}),
-            run: () => {
-              this.generateStory().then((story) => {
-                if (!story.length) return "Error generating stories. Tell user to change the story or try again.";
-
-                state$.next({
-                  ...state$.value,
-                  story,
-                });
-
-                this.changeStage("playing");
-              });
-
-              return "Tell the use the story will start now.";
-            },
-          })
-          .commitDraftTools()
-          .updateSessionInstructions(
-            `
-You are a talented storyteller. You are helping user design the characters and objects of a story.
-The user will show you daily objects they would like to use to represent the characters in the story.
-Your job is to keep track of what each daily object represents in the story.
-
-${
-  state.characters.length
-    ? `Here is what you and user have agreed on so far:
-
-${state.characters
-  .map((ele) =>
-    `
-Daily object: ${ele.dailyObject} 
-Character: ${ele.characterName} (${ele.characterDescription})
-  `.trim(),
-  )
-  .join("\n\n")}`
-    : ""
-}
-
-The user is currently showing you: ${state.vision}
-
-Now interact with the user in one of the following ways:
-- Use the create_character tool to update your memory with the new information.
-- Use change_character or remove_character tool to update your memory with the latest instruction from the user
-- When user is ready, use the start_story tool to start the story. Do NOT start_story without user's explicit permission.
-
-After each tool use, you MUST concisely tell user what you did.
-          `.trim(),
-          );
-      }),
-    );
-  }
-
-  useCharacterGrid() {
-    return state$.pipe(
-      map(
-        (state) =>
-          html`${state.characters.map(
-            (character) => html`
-              <div class="media-card">
-                <img src="${character.imageUrl ?? `https://placehold.co/400?text=Sketching...`}" />
-                <p>${character.characterName}</p>
-              </div>
-            `,
-          )}`,
-      ),
-      tap((htmlTemplate) => render(htmlTemplate, charactersGrid)),
-    );
-  }
-
-  async generateStory() {
-    const aoai = llmNode.getClient("aoai");
-    const story = await aoai.chat.completions.create({
-      messages: [
-        system`You are a talented story writer. Write a stunning narrative featuring these elements:
-
-${state$.value.characters.map((ele) => `${ele.characterName} (${ele.characterDescription})`).join("\n")}
-
-You must write a high level narrative for the story and leave out all the details. The narrative should be one very concise paragraph.
-
-Respond in valid JSON, with the following type interface:
-
-{
-  story: string;
-}
-        
-        `,
-      ],
-      model: "gpt-4o",
-      response_format: {
-        type: "json_object",
-      },
-    });
-
-    const parsedStory = tryParse<{ story: string }>(story.choices[0].message.content!, {
-      story: "",
-    }).story;
-
-    return parsedStory;
   }
 
   changeStage(status: StoryState["stage"]) {

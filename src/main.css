@@ -102,14 +102,20 @@ body {
   }
 }
 
-[data-stage="playing"] {
-  [data-visible-stage]:not([data-visible-stage="playing"]) {
+[data-stage="customizing"] {
+  [data-visible-stage]:not([data-visible-stage="customizing"]) {
     display: none;
   }
 }
 
-[data-stage="customizing"] {
-  [data-visible-stage]:not([data-visible-stage="customizing"]) {
+[data-stage="editing"] {
+  [data-visible-stage]:not([data-visible-stage="editing"]) {
+    display: none;
+  }
+}
+
+[data-state="premiere"] {
+  [data-visible-state]:not([data-visible-state="premiere"]) {
     display: none;
   }
 }
