@@ -90,10 +90,16 @@ body {
 
 .character-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  /* grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); */
+  grid-auto-flow: column;
 
   /* make sure the grid can take full width of the container */
   width: 100%;
+
+  img {
+    height: 100vh;
+    object-fit: cover;
+  }
 }
 
 [data-stage="playing"] {
@@ -109,6 +115,7 @@ body {
 }
 
 header {
+  z-index: 1;
   position: fixed;
   width: 400px;
   top: 0;
@@ -170,5 +177,26 @@ menu {
     width: 100%;
     display: block;
     opacity: 1;
+  }
+
+  .scene {
+    position: relative;
+    height: 100vh;
+
+    img {
+      height: calc(100vh - 80px);
+      object-fit: cover;
+    }
+
+    p {
+      position: absolute;
+      bottom: 0;
+      height: 80px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      overflow: auto;
+      padding: 4px 16px;
+    }
   }
 }

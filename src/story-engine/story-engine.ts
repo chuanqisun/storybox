@@ -21,7 +21,7 @@ import { tryParse } from "../lib/parse";
 import { getVision } from "./vision";
 
 export interface StoryState {
-  stage: "new" | "customizing" | "playing";
+  stage: "new" | "customizing" | "playing" | "premiere";
   style: "realistic" | "flet" | "paper" | "manga";
   characters: StoryCharacter[];
   scenes: StoryScene[];
@@ -157,8 +157,8 @@ export class StoryEngine {
       tap((state) => {
         realtime
           .addDraftTool({
-            name: "continue_story",
-            description: "Develop a new scene",
+            name: "add_next_scene",
+            description: "Continue the story with a new scene",
             parameters: z.object({
               narration: z.string().describe("The story narration for the scene in one short sentence"),
               sceneDescription: z
@@ -186,12 +186,49 @@ export class StoryEngine {
             },
           })
           .addDraftTool({
-            name: "end_story",
-            description: "End the story",
+            name: "edit_current_scene",
+            description: "Edit the current scene",
+            parameters: z.object({
+              update: z
+                .object({
+                  narration: z.string().describe("The story narration for the scene in one short sentence"),
+                  sceneDescription: z
+                    .string()
+                    .describe(
+                      "A visual depiction of the scene in the story. Use your best imagination to fill in the appearance, relations of the characters, camera angle, lighting, surrounding. Do NOT mention everyday objects themselves. Instead, focus on what they represent",
+                    ),
+                })
+                .describe("The updated narration and scene description for the current scene"),
+            }),
+            run: async (args) => {
+              const dataUrl = await togetherAINode.generateImageDataURL(
+                `${args.update.sceneDescription} ${claymationStyle}`,
+              );
+
+              state$.next({
+                ...state$.value,
+                scenes: state$.value.scenes.map((scene, i) =>
+                  i === state$.value.scenes.length - 1
+                    ? {
+                        ...scene,
+                        imageUrl: dataUrl,
+                        narration: args.update.narration,
+                        caption: args.update.sceneDescription,
+                      }
+                    : scene,
+                ),
+              });
+
+              return `Scene ${state$.value.scenes.length} updated.`;
+            },
+          })
+          .addDraftTool({
+            name: "start_premiere",
+            description: "Show the entire story as a movie",
             parameters: z.object({}),
             run: () => {
-              this.changeStage("new");
-              return "Story has ended. Ask user if they want to start a new one";
+              this.changeStage("premiere");
+              return "Done. Let user seat back and enjoy the story.";
             },
           })
           .commitDraftTools() // clear previous tools
@@ -219,11 +256,13 @@ ${state.scenes.map((scene, i) => `Scene ${i + 1}: ${scene.narration}`).join("\n"
 
 Now work with the user to develop the story one scene at a time.
 - Let user guide you with the objects they show and the words the say. The user is currently showing you: ${state.vision}
-- Always use continue_story tool to continue the story:
+- Use add_next_scene tool to continue the story:
   - When developing the narration, do NOT deviate from the overall story.
   - When writing scene visual description, do NOT mention the daily objects themselves. Instead, focus on what they represent. Include details about their imaginary appearance, position, relation to the scene and each other, their color, shape, size,. Also mention camera angle, lighting, to help people visualize it.
   - After using the tool, you MUST respond with the narration
-- With user's permission, when you reach the end of the story, use end_story tool to end the story. Do NOT exceed five scenes
+- Use edit_current_scene to edit the current scene.
+  - After using the tool, concisely tell user what you did.
+- When user has finished developing all the scenes, with user's permission, you can use start_premiere tool to show the story as a movie. Encourage user to wrap up within five scenes
           `.trim(),
           );
       }),
@@ -295,7 +334,7 @@ Now work with the user to develop the story one scene at a time.
                 characterDescription: args.characterDescription,
               });
 
-              return `Memory updated. ${args.dailyObject} represents ${args.characterName} (${args.characterDescription})`;
+              return `Character added: ${args.dailyObject} represents ${args.characterName} (${args.characterDescription})`;
             },
           })
           .addDraftTool({
@@ -313,7 +352,7 @@ Now work with the user to develop the story one scene at a time.
                 characters: state$.value.characters.filter((e) => e.characterName !== args.characterName),
               });
 
-              return `Memory updated. ${args.characterName} is removed.`;
+              return `Character ${args.characterName} is removed.`;
             },
           })
           .addDraftTool({
@@ -354,7 +393,7 @@ Now work with the user to develop the story one scene at a time.
                 ),
               });
 
-              return `Memory updated. ${existing.dailyObject} now represents ${args.update.characterName} in the story.`;
+              return `Character changed: ${existing.dailyObject} now represents ${args.update.characterName} in the story.`;
             },
           })
           .addDraftTool({
@@ -385,7 +424,7 @@ Your job is to keep track of what each daily object represents in the story.
 
 ${
   state.characters.length
-    ? `Here is your memory so far
+    ? `Here is what you and user have agreed on so far:
 
 ${state.characters
   .map((ele) =>
@@ -405,7 +444,7 @@ Now interact with the user in one of the following ways:
 - Use change_character or remove_character tool to update your memory with the latest instruction from the user
 - When user is ready, use the start_story tool to start the story. Do NOT start_story without user's explicit permission.
 
-After each tool use, very concisely tell user what you did.
+After each tool use, you MUST concisely tell user what you did.
           `.trim(),
           );
       }),
