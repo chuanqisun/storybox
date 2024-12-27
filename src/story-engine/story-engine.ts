@@ -157,6 +157,7 @@ export class StoryEngine {
             }
 
             case "trailer": {
+              realtime.muteMicrophone();
               this.generateTrailer();
 
               return merge(
