@@ -148,6 +148,7 @@ header {
 
 .monitor-layout {
   display: inline-grid;
+  width: 400px;
   gap: 1px;
   background-color: black;
   grid-auto-flow: column;

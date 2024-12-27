@@ -1,5 +1,10 @@
 avatar-element {
   display: contents;
+  --brightness: 1;
+}
+
+avatar-element:not(:hover):not([data-speaking]) {
+  --brightness: 0;
 }
 
 .avatar-button {
@@ -9,6 +14,9 @@ avatar-element {
   background: none;
   border: none;
   position: relative;
+  filter: brightness(var(--brightness));
+
+  transition: filter 0.2s ease-out;
 
   .name-plate {
     margin-inline: auto;
