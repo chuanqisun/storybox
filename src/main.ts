@@ -62,8 +62,7 @@ const globalClick$ = fromEvent(document, "click").pipe(
         break;
       }
       case "enable-camera": {
-        const defaultDevice = (await cameraNode.getDeviceList()).at(0);
-        cameraNode.start(defaultDevice?.deviceId);
+        cameraNode.start();
         cameraButton.dataset.action = "disable-camera";
         cameraButton.textContent = "Disable Camera";
         break;

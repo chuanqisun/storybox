@@ -1,5 +1,6 @@
 import Pixelmatch from "pixelmatch";
 import { debounceTime, Subject, Subscription, tap } from "rxjs";
+import { attachShadowHtml } from "../wc-utils/attach-html";
 
 export function defineCameraNode() {
   customElements.define("camera-node", CameraNode);
@@ -12,15 +13,50 @@ export class CameraNode extends HTMLElement {
   private referenceFrame: ImageData | null = null;
   private changeThreshold: number = 0.02;
   private dynamicScanDebounce = 200;
-
   private stream: MediaStream | null = null;
-
+  private cameraConstraints: MediaStreamConstraints = {
+    video: {
+      width: { min: 200, ideal: 400 },
+      height: { min: 200, ideal: 400 },
+    },
+  };
   private diffStream$ = new Subject<number>();
   private diffStreamSub: Subscription | null = null;
 
+  shadowRoot = attachShadowHtml(
+    this,
+    `
+<style>
+:host {
+  select {
+      display: block;
+      font-size: 16px;
+  }
+
+  button {
+    font-size: 16px;
+  }
+
+  form {
+    display: grid;
+    gap: 1rem;
+  }
+}
+</style>
+<button>📹</button>
+<dialog style="width: min(40rem, calc(100vw - 32px))">
+  <form  method="dialog">
+    <select name="webcam" id="webcamSelect">
+        <option value="" disabled selected>Select a webcam</option>
+    </select>
+    <button>OK</button>
+  </form>
+</dialog>
+    `.trim(),
+  );
+
   constructor() {
     super();
-    this.attachShadow({ mode: "open" });
 
     // Create video and canvas elements
     const externalVideo = this.getAttribute("video")
@@ -40,10 +76,19 @@ export class CameraNode extends HTMLElement {
       : null;
     this.canvasElement = externalCanvas ?? document.createElement("canvas");
     this.canvasContext = this.canvasElement.getContext("2d")!;
+    this.canvasElement.style.display = "none";
 
     if (!externalCanvas) {
       this.shadowRoot!.append(this.canvasElement);
     }
+  }
+
+  connectedCallback() {
+    this.setAttribute("provides", "toolbar-item");
+    this.shadowRoot.querySelector("button")?.addEventListener("click", () => {
+      this.shadowRoot.querySelector("dialog")?.showModal();
+    });
+    this.getWebcamDevices();
   }
 
   async getDeviceList(): Promise<MediaDeviceInfo[]> {
@@ -56,11 +101,12 @@ export class CameraNode extends HTMLElement {
     }
   }
 
-  async start(deviceId?: string): Promise<void> {
+  async start(): Promise<void> {
     try {
+      const selectedId = localStorage.getItem("selectedWebcamDeviceId");
       const constraints: MediaStreamConstraints = {
         video: {
-          deviceId: deviceId ? { exact: deviceId } : undefined,
+          deviceId: selectedId ? { exact: selectedId } : undefined,
           width: { min: 200, ideal: 400 },
           height: { min: 200, ideal: 400 },
         },
@@ -127,6 +173,42 @@ export class CameraNode extends HTMLElement {
       }
 
       requestAnimationFrame(this.processFrame.bind(this));
+    }
+  }
+
+  private async getWebcamDevices(): Promise<void> {
+    const webcamSelect = this.shadowRoot!.getElementById("webcamSelect") as HTMLSelectElement;
+
+    const saveSelectedDevice = () => {
+      if (webcamSelect) {
+        const selectedDeviceId = webcamSelect.value;
+
+        if (selectedDeviceId) {
+          // Save the selected device ID in local storage
+          localStorage.setItem("selectedWebcamDeviceId", selectedDeviceId);
+          console.log("Webcam device ID saved:", selectedDeviceId);
+        }
+      }
+    };
+
+    try {
+      // Request access to media devices
+      await navigator.mediaDevices.getUserMedia({ video: true });
+
+      const videoDevices = await this.getDeviceList();
+
+      if (webcamSelect) {
+        videoDevices.forEach((device, index) => {
+          const option = document.createElement("option");
+          option.value = device.deviceId;
+          option.textContent = device.label || `Camera ${index + 1}`;
+          webcamSelect.appendChild(option);
+        });
+
+        webcamSelect.addEventListener("change", saveSelectedDevice);
+      }
+    } catch (error) {
+      console.error("Error accessing media devices.", error);
     }
   }
 }
