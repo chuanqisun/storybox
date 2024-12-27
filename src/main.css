@@ -66,6 +66,7 @@ h6 {
 
 body {
   font-size: 14px;
+  background-color: black;
   font-family:
     system-ui,
     -apple-system,
@@ -122,6 +123,10 @@ body {
 }
 
 .guests-grid {
+  &[hidden] {
+    display: none;
+  }
+
   position: absolute;
 
   display: flex;
@@ -131,7 +136,7 @@ body {
   left: 0;
   right: 0;
 
-  animation: slide-up 0.5s both;
+  animation: slide-up 1s both;
 }
 
 @keyframes slide-up {

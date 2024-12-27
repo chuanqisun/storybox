@@ -631,6 +631,8 @@ Now use the speak_as tool to simulate the audience response. Do NOT add addition
                 ],
               });
 
+              guests.removeAttribute("hidden");
+
               this.history.push(`(User: I added scene ${state$.value.scenes.length}: ${args.narration}`);
 
               return `Scene ${state$.value.scenes.length} created. You must now respond with the narration: "${args.narration}"`;
