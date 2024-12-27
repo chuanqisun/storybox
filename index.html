@@ -15,7 +15,8 @@
           <button data-action="mute">Mute</button>
           <button data-action="enable-camera">Enable camera</button>
           <button data-action="present">Present</button>
-          <button data-action="debug-scenes">Debug scenes</button>
+          <button data-action="debug-scenes">Scenes</button>
+          <button data-action="debug-trailer">Trailer</button>
           <div id="caption-status"></div>
         </menu>
         <div class="monitor-layout">
@@ -31,15 +32,10 @@
           <avatar-element></avatar-element>
           <avatar-element></avatar-element>
         </div>
-        <div id="premiere">
-          <img id="premiere-image" src="https://placehold.co/1600X900/black/white?text=Placeholder+title" />
+        <div data-visible-stage="premiere" id="premiere" class="premiere-layout">
+          <img id="trailer-image" src="https://placehold.co/1600X900/black/white?text=Placeholder+title" />
           <div id="closed-caption">
-            <p>[closed caption loading...]</p>
-            <p>[closed caption loading...]</p>
-            <p>[closed caption loading...]</p>
-            <p>[closed caption loading...]</p>
-            <p>[closed caption loading...]</p>
-            <p>[closed caption loading...]</p>
+            <p>Starting closed caption in en-US</p>
           </div>
         </div>
       </main>

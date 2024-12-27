@@ -3,8 +3,10 @@ import {
   BehaviorSubject,
   concatMap,
   distinct,
+  distinctUntilChanged,
   distinctUntilKeyChanged,
   filter,
+  from,
   fromEvent,
   map,
   merge,
@@ -18,24 +20,26 @@ import z from "zod";
 import { AvatarElement } from "../components/avatar-element";
 import { AzureSttNode } from "../lib/ai-bar/lib/elements/azure-stt-node";
 import { AzureTtsNode, type StateChangeEventDetail } from "../lib/ai-bar/lib/elements/azure-tts-node";
+import type { ElevenLabsTtsNode } from "../lib/ai-bar/lib/elements/eleven-labs-tts-node";
 import { LlmNode } from "../lib/ai-bar/lib/elements/llm-node";
 import type { OpenAIRealtimeNode } from "../lib/ai-bar/lib/elements/openai-realtime-node";
 import type { TogetherAINode } from "../lib/ai-bar/lib/elements/together-ai-node";
 import type { AIBarEventDetail } from "../lib/ai-bar/lib/events";
 import { system, user } from "../lib/ai-bar/lib/message";
-import { $, $all } from "../lib/dom";
+import { $, $all, $new } from "../lib/dom";
 import { parseJsonStream } from "../lib/json-stream";
 import { tryParse } from "../lib/parse";
 import { getVision } from "./vision";
 
 export interface StoryState {
-  stage: "new" | "customizing" | "editing" | "premiere";
+  stage: "new" | "customizing" | "editing" | "trailer";
   style: "realistic" | "flet" | "paper" | "manga";
   characters: StoryCharacter[];
   scenes: StoryScene[];
   story: string;
   guests: StoryGuest[];
   vision: string;
+  trailer: TrailerScene[];
 }
 
 export interface StoryCharacter {
@@ -58,6 +62,19 @@ export interface StoryGuest {
   expression: string;
 }
 
+export interface TrailerScene {
+  isActive?: boolean;
+  sceneDescription: string;
+  imageUrl?: string;
+  voiceTracks: VoiceTrack[];
+}
+
+export interface VoiceTrack {
+  timestamp: string;
+  speaker: string;
+  utterance: string;
+}
+
 const realtime = $<OpenAIRealtimeNode>("openai-realtime-node")!;
 const vision = getVision();
 const togetherAINode = $<TogetherAINode>("together-ai-node")!;
@@ -68,6 +85,9 @@ const charactersGrid = $<HTMLElement>("#characters")!;
 const guests = $<HTMLElement>("#guests")!;
 const azureSttNode = $<AzureSttNode>("azure-stt-node")!;
 const azureTtsNode = $<AzureTtsNode>("azure-tts-node")!;
+const trailerImage = $<HTMLImageElement>("#trailer-image")!;
+const closedCaption = $<HTMLElement>("#closed-caption")!;
+const eleventLabsTtsNode = $<ElevenLabsTtsNode>("eleven-labs-tts-node")!;
 
 const state$ = new BehaviorSubject<StoryState>({
   stage: "new",
@@ -77,6 +97,7 @@ const state$ = new BehaviorSubject<StoryState>({
   story: "",
   guests: [],
   vision: "",
+  trailer: [],
 });
 
 const characterImagePrompt$ = new Subject<{ characterName: string; characterDescription: string }>();
@@ -126,9 +147,10 @@ export class StoryEngine {
               );
             }
 
-            case "premiere": {
-              // Add logic for the premiere stage here
-              return of();
+            case "trailer": {
+              this.generateTrailer();
+
+              return merge(this.useTrailerControl(), this.useTrailerPlay());
             }
           }
 
@@ -678,11 +700,11 @@ Now use the speak_as tool to simulate the audience response. Do NOT add addition
             },
           })
           .addDraftTool({
-            name: "start_premiere",
+            name: "start_trailer",
             description: "Show the entire story as a movie",
             parameters: z.object({}),
             run: () => {
-              this.changeStage("premiere");
+              this.changeStage("trailer");
               return "Done. Let user seat back and enjoy the story.";
             },
           })
@@ -717,11 +739,132 @@ Now work with the user to develop the story one scene at a time.
   - After using the tool, you MUST respond with the narration
 - Use edit_current_scene to edit the current scene.
   - After using the tool, concisely tell user what you did.
-- When user has finished developing all the scenes, with user's permission, you can use start_premiere tool to show the story as a movie. Encourage user to wrap up within five scenes
+- When user has finished developing all the scenes, with user's permission, you can use start_trailer tool to show the story as a movie trailer. Encourage user to wrap up within five scenes
           `.trim(),
           );
       }),
     );
+  }
+
+  async generateTrailer() {
+    const aoai = llmNode.getClient("aoai");
+    const task = await aoai.chat.completions.create({
+      stream: true,
+      messages: [
+        system`You are a talented screenwriter. You will make an epic 60-second cinematic trailer for the user provided story.
+
+You must describe the trailer as a sequence of scenes. In each scene:
+- The scene description is highly detailed, including subjects, environment, camera angle, lighting, and every visual detail.
+- Do NOT move camera or character. It must be a still frame with stunning composition.
+- Each time you mention a character or creature in the scene, you must include the characters appearance, expression, pose, clothing. You must repeat this for each appearance.
+- Design voice tracks with narrator voice-over and/or short character dialogue/monologue. Make sure each character has a chance to speak
+
+The last scene must have an empty description with a single voice track item, creatively announcing the movie's name and tease that it will come to theater in Summer 2025.
+
+Respond in valid JSON, with the following type interface:
+
+{
+  scenes: {
+    sceneDescription: string;
+    voiceTracks: {
+      timestamp: string; // "MM:SS" format
+      speaker: string; // "Voice-over" or the name of the character
+      utterance: string;
+    }[]
+  }[],
+}
+
+`,
+        user`
+Please make a movie trailer for this story. Make sure to create suspense and excitement:
+
+${state$.value.scenes.map((scene, i) => `Chapter ${i + 1}: ${scene.narration}`).join("\n")}
+`,
+      ],
+      response_format: {
+        type: "json_object",
+      },
+      model: "gpt-4o",
+    });
+
+    // TODO generate images for each scene
+    // TODO match voice character
+    parseJsonStream(task)
+      .pipe(
+        filter(
+          (parsed) => typeof parsed.key === "number" && typeof (parsed.value as any)?.sceneDescription === "string",
+        ),
+        tap((parsed) => {
+          state$.next({
+            ...state$.value,
+            trailer: [...state$.value.trailer, parsed.value as any],
+          });
+        }),
+      )
+      .subscribe();
+  }
+
+  useTrailerControl() {
+    return fromEvent<KeyboardEvent>(document, "keydown").pipe(
+      tap((e) => {
+        switch (e.key) {
+          case "ArrowRight": {
+            e.preventDefault();
+            const currentIndex = state$.value.trailer.findIndex((e) => e.isActive);
+            const nextIndex = (currentIndex + 1) % state$.value.trailer.length;
+            state$.next({
+              ...state$.value,
+              trailer: state$.value.trailer.map((scene, i) =>
+                i === nextIndex ? { ...scene, isActive: true } : { ...scene, isActive: false },
+              ),
+            });
+            break;
+          }
+          case "ArrowLeft": {
+            e.preventDefault();
+            const currentIndex = state$.value.trailer.findIndex((e) => e.isActive);
+            const previousIndex = Math.max(currentIndex - 1, 0);
+            state$.next({
+              ...state$.value,
+              trailer: state$.value.trailer.map((scene, i) =>
+                i === previousIndex ? { ...scene, isActive: true } : { ...scene, isActive: false },
+              ),
+            });
+            break;
+          }
+        }
+      }),
+    );
+  }
+
+  useTrailerPlay() {
+    return state$.pipe(
+      map((state) => state.trailer.find((e) => e.isActive)),
+      distinctUntilChanged((a, b) => a?.sceneDescription === b?.sceneDescription),
+      switchMap((scene) => {
+        if (!scene) return of([]);
+
+        trailerImage.src = `https://placehold.co/400?text=${encodeURIComponent(scene.sceneDescription)}`;
+
+        // TODO require voice actor match, for now use standard narrator voice
+        const epicVoice = `FF7KdobWPaiR0vkcALHF`;
+        const characterVoice = `nDJIICjR9zfJExIFeSCN`;
+        return from(scene.voiceTracks).pipe(
+          concatMap(async (track) => {
+            const captionLine = $new("p", {}, [`${track.speaker}: ${track.utterance ?? ""}`]);
+            closedCaption.appendChild(captionLine);
+            captionLine.scrollIntoView({ behavior: "smooth" });
+            await eleventLabsTtsNode.queue(track.utterance, {
+              voice: track.speaker === "Voice-over" ? epicVoice : characterVoice,
+            });
+          }),
+        );
+      }),
+    );
+  }
+
+  useTrailerVoiceover() {
+    return of([]);
   }
 
   changeStage(status: StoryState["stage"]) {
@@ -740,6 +883,48 @@ Now work with the user to develop the story one scene at a time.
         },
       ],
       story: "Mickey Mouse had to find his way home",
+    });
+  }
+
+  debugTrailer() {
+    state$.next({
+      ...state$.value,
+      stage: "trailer",
+      characters: [
+        {
+          characterName: "Mickey Mouse",
+          characterDescription: "A friendly mouse with a red bowtie and white gloves",
+          dailyObject: "A yellow rubber duck",
+        },
+        {
+          characterName: "Fox",
+          characterDescription: "A mischievous fox with a bushy tail and a red scarf",
+          dailyObject: "A red rubber duck",
+        },
+      ],
+      story: "Mickey Mouse had to find his way home",
+      scenes: [
+        {
+          placeholderImgUrl: "https://placehold.co/400",
+          narration: "Mickey Mouse was walking home",
+          caption: "Mickey Mouse is walking home",
+        },
+        {
+          placeholderImgUrl: "https://placehold.co/400",
+          narration: "He got lost in the magic forest",
+          caption: "Mickey Mouse is lost in the magic forest",
+        },
+        {
+          placeholderImgUrl: "https://placehold.co/400",
+          narration: "He met a friendly fox",
+          caption: "Mickey Mouse meets a friendly fox",
+        },
+        {
+          placeholderImgUrl: "https://placehold.co/400",
+          narration: "They found his way home together",
+          caption: "Mickey Mouse and the fox find his way home together",
+        },
+      ],
     });
   }
 }

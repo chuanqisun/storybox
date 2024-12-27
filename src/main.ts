@@ -77,6 +77,10 @@ const globalClick$ = fromEvent(document, "click").pipe(
         storyEngine.debugScenes();
         break;
       }
+      case "debug-trailer": {
+        storyEngine.debugTrailer();
+        break;
+      }
     }
   }),
 );
