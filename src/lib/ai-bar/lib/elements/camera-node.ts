@@ -100,11 +100,6 @@ export class CameraNode extends HTMLElement {
     return "";
   }
 
-  updateSettings(colorDistanceThreshold: number, changeThreshold: number): void {
-    this.colorDistanceThreshold = colorDistanceThreshold;
-    this.changeThreshold = changeThreshold;
-  }
-
   private processFrame(): void {
     if (!this.videoElement.paused && !this.videoElement.ended) {
       this.canvasElement.width = this.videoElement.videoWidth;
