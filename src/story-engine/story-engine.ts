@@ -6,6 +6,7 @@ import {
   distinctUntilChanged,
   distinctUntilKeyChanged,
   filter,
+  finalize,
   from,
   fromEvent,
   map,
@@ -14,6 +15,7 @@ import {
   Subject,
   Subscription,
   switchMap,
+  takeWhile,
   tap,
 } from "rxjs";
 import z from "zod";
@@ -68,6 +70,7 @@ export interface TrailerScene {
   sceneDescription: string;
   imageUrl?: string;
   voiceTracks: VoiceTrack[];
+  played?: boolean;
 }
 
 export interface VoiceTrack {
@@ -156,7 +159,12 @@ export class StoryEngine {
             case "trailer": {
               this.generateTrailer();
 
-              return merge(this.useTrailerControl(), this.useTrailerPlay(), this.useTrailerVoiceover());
+              return merge(
+                this.useTrailerControl(),
+                this.useTrailerPlay(),
+                this.useTrailerVoiceover(),
+                this.useTrailerAutoControl(),
+              );
             }
           }
 
@@ -847,7 +855,7 @@ ${state$.value.scenes.map((scene, i) => `Chapter ${i + 1}: ${scene.narration}`).
             state$.next({
               ...state$.value,
               trailer: state$.value.trailer.map((scene, i) =>
-                i === nextIndex ? { ...scene, isActive: true } : { ...scene, isActive: false },
+                i === nextIndex ? { ...scene, isActive: true, played: false } : { ...scene, isActive: false },
               ),
             });
             break;
@@ -859,12 +867,47 @@ ${state$.value.scenes.map((scene, i) => `Chapter ${i + 1}: ${scene.narration}`).
             state$.next({
               ...state$.value,
               trailer: state$.value.trailer.map((scene, i) =>
-                i === previousIndex ? { ...scene, isActive: true } : { ...scene, isActive: false },
+                i === previousIndex ? { ...scene, isActive: true, played: false } : { ...scene, isActive: false },
               ),
             });
             break;
           }
         }
+      }),
+    );
+  }
+
+  useTrailerAutoControl() {
+    return state$.pipe(
+      map((state) => {
+        const isEnded = state.trailer.at(-1)?.played;
+
+        const currentScene = state.trailer.find((e) => e.isActive);
+        const currentIndex = state.trailer.findIndex((e) => e.isActive);
+        const currentScenePlayed = currentScene?.played ?? currentScene === undefined;
+
+        const nextIndex = (currentIndex + 1) % state.trailer.length;
+        const nextScene = state.trailer[currentIndex + 1];
+        const isNextSceneReady = nextScene?.imageUrl !== undefined;
+
+        if (!isEnded && currentScenePlayed && isNextSceneReady) {
+          return { nextIndex, isEnded };
+        } else {
+          return { nextIndex: null, isEnded };
+        }
+      }),
+      distinctUntilChanged((a, b) => a.nextIndex === b.nextIndex && a.isEnded === b.isEnded),
+      takeWhile(({ isEnded }) => !isEnded),
+      tap(({ nextIndex }) => {
+        if (nextIndex === null) return;
+        console.log(`[auto-control]`, { nextIndex });
+
+        state$.next({
+          ...state$.value,
+          trailer: state$.value.trailer.map((scene, i) =>
+            i === nextIndex ? { ...scene, isActive: true, played: false } : { ...scene, isActive: false },
+          ),
+        });
       }),
     );
   }
@@ -899,6 +942,15 @@ ${state$.value.scenes.map((scene, i) => `Chapter ${i + 1}: ${scene.narration}`).
             captionLine.scrollIntoView({ behavior: "smooth" });
             await eleventLabsTtsNode.queue(track.utterance, {
               voice: track.speaker === "Voice-over" ? epicVoice : characterVoice,
+            });
+          }),
+          finalize(() => {
+            // mark as played
+            state$.next({
+              ...state$.value,
+              trailer: state$.value.trailer.map((e) =>
+                e.sceneDescription === scene.sceneDescription ? { ...e, played: true } : e,
+              ),
             });
           }),
         );
