@@ -1,3 +1,4 @@
+import Pixelmatch from "pixelmatch";
 import { debounceTime, Subject, Subscription, tap } from "rxjs";
 
 export function defineCameraNode() {
@@ -113,10 +114,19 @@ export class CameraNode extends HTMLElement {
       const currentFrame = this.canvasContext.getImageData(0, 0, this.canvasElement.width, this.canvasElement.height);
 
       if (this.referenceFrame) {
-        const diffPercentage = this.compareFrames(this.referenceFrame, currentFrame);
-        if (diffPercentage > this.changeThreshold) {
+        const pixelmatchOutput = Pixelmatch(
+          this.referenceFrame.data,
+          currentFrame.data,
+          null,
+          this.referenceFrame.width,
+          this.referenceFrame.height,
+          { threshold: 0.2, includeAA: true },
+        );
+        const totalPixel = this.referenceFrame.width * this.referenceFrame.height;
+        const diffPercentageV2 = pixelmatchOutput / totalPixel;
+        if (diffPercentageV2 > this.changeThreshold) {
           this.referenceFrame = currentFrame;
-          this.diffStream$.next(diffPercentage);
+          this.diffStream$.next(diffPercentageV2);
         }
       } else {
         this.referenceFrame = currentFrame;
@@ -124,28 +134,5 @@ export class CameraNode extends HTMLElement {
 
       requestAnimationFrame(this.processFrame.bind(this));
     }
-  }
-
-  private compareFrames(frame1: ImageData, frame2: ImageData): number {
-    const data1 = frame1.data;
-    const data2 = frame2.data;
-    let differentPixels = 0;
-
-    for (let i = 0; i < data1.length; i += 4) {
-      const r1 = data1[i],
-        g1 = data1[i + 1],
-        b1 = data1[i + 2];
-      const r2 = data2[i],
-        g2 = data2[i + 1],
-        b2 = data2[i + 2];
-
-      const colorDistance = Math.sqrt((r2 - r1) ** 2 + (g2 - g1) ** 2 + (b2 - b1) ** 2);
-
-      if (colorDistance > this.colorDistanceThreshold) {
-        differentPixels++;
-      }
-    }
-
-    return differentPixels / (data1.length / 4);
   }
 }
