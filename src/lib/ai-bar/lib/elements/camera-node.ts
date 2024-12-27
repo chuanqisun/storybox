@@ -58,7 +58,7 @@ export class CameraNode extends HTMLElement {
 
   async start(deviceId?: string): Promise<void> {
     try {
-      const constraints = {
+      const constraints: MediaStreamConstraints = {
         video: {
           deviceId: deviceId ? { exact: deviceId } : undefined,
           width: { min: 200, ideal: 400 },

@@ -16,9 +16,11 @@ import { system } from "../lib/ai-bar/lib/message";
 import { $ } from "../lib/dom";
 
 export function getVision() {
-  const pendingDescriptionCount$ = new BehaviorSubject(0);
+  const pendingDescriptionCountInternal$ = new BehaviorSubject(0);
   const cameraNode = $<CameraNode>("camera-node")!;
   const debugCapture = $<HTMLImageElement>("#debug-capture")!;
+
+  const pendingDescriptionCount = pendingDescriptionCountInternal$.asObservable().pipe(share());
 
   const vision$ = fromEvent(cameraNode, "framechange").pipe(
     mergeMap(() => {
@@ -32,7 +34,7 @@ export function getVision() {
         const llm = $<LlmNode>("llm-node")!;
         const aoai = llm.getClient("openai");
         const abortController = new AbortController();
-        pendingDescriptionCount$.next(pendingDescriptionCount$.value + 1);
+        pendingDescriptionCountInternal$.next(pendingDescriptionCountInternal$.value + 1);
 
         aoai.chat.completions
           .create(
@@ -66,7 +68,7 @@ export function getVision() {
           })
           .catch()
           .finally(() => {
-            pendingDescriptionCount$.next(pendingDescriptionCount$.value - 1);
+            pendingDescriptionCountInternal$.next(pendingDescriptionCountInternal$.value - 1);
             subscriber.complete();
           });
 
@@ -97,7 +99,7 @@ export function getVision() {
   );
 
   // the lastest vision when pendingCount = 0
-  const stableVision$ = combineLatest([vision$, pendingDescriptionCount$]).pipe(
+  const stableVision$ = combineLatest([vision$, pendingDescriptionCount]).pipe(
     filter(([, pendingCount]) => pendingCount === 0),
     map(([vision]) => vision),
     share(),
@@ -106,6 +108,6 @@ export function getVision() {
   return {
     vision$,
     stableVision$,
-    pendingDescriptionCount$: pendingDescriptionCount$.asObservable(),
+    pendingDescriptionCount$: pendingDescriptionCountInternal$,
   };
 }
