@@ -18,6 +18,7 @@ import {
 } from "rxjs";
 import z from "zod";
 import { AvatarElement } from "../components/avatar-element";
+import { AzureDalleNode } from "../lib/ai-bar/lib/elements/azure-dalle-node";
 import { AzureSttNode } from "../lib/ai-bar/lib/elements/azure-stt-node";
 import { AzureTtsNode, type StateChangeEventDetail } from "../lib/ai-bar/lib/elements/azure-tts-node";
 import type { ElevenLabsTtsNode } from "../lib/ai-bar/lib/elements/eleven-labs-tts-node";
@@ -75,19 +76,24 @@ export interface VoiceTrack {
   utterance: string;
 }
 
-const realtime = $<OpenAIRealtimeNode>("openai-realtime-node")!;
-const vision = getVision();
-const togetherAINode = $<TogetherAINode>("together-ai-node")!;
+// AI nodes
+const azureDalleNode = $<AzureDalleNode>("azure-dalle-node")!;
+const azureSttNode = $<AzureSttNode>("azure-stt-node")!;
+const azureTtsNode = $<AzureTtsNode>("azure-tts-node")!;
+const eleventLabsTtsNode = $<ElevenLabsTtsNode>("eleven-labs-tts-node")!;
 const llmNode = $<LlmNode>("llm-node")!;
+const realtime = $<OpenAIRealtimeNode>("openai-realtime-node")!;
+const togetherAINode = $<TogetherAINode>("together-ai-node")!;
+
+// DOM Elements
 const timeline = $<HTMLElement>("#timeline")!;
 const captionStatus = $<HTMLElement>("#caption-status")!;
 const charactersGrid = $<HTMLElement>("#characters")!;
 const guests = $<HTMLElement>("#guests")!;
-const azureSttNode = $<AzureSttNode>("azure-stt-node")!;
-const azureTtsNode = $<AzureTtsNode>("azure-tts-node")!;
 const trailerImage = $<HTMLImageElement>("#trailer-image")!;
 const closedCaption = $<HTMLElement>("#closed-caption")!;
-const eleventLabsTtsNode = $<ElevenLabsTtsNode>("eleven-labs-tts-node")!;
+
+const vision = getVision();
 
 const state$ = new BehaviorSubject<StoryState>({
   stage: "new",
@@ -150,7 +156,7 @@ export class StoryEngine {
             case "trailer": {
               this.generateTrailer();
 
-              return merge(this.useTrailerControl(), this.useTrailerPlay());
+              return merge(this.useTrailerControl(), this.useTrailerPlay(), this.useTrailerVoiceover());
             }
           }
 
@@ -759,7 +765,11 @@ You must describe the trailer as a sequence of scenes. In each scene:
 - Each time you mention a character or creature in the scene, you must include the characters appearance, expression, pose, clothing. You must repeat this for each appearance.
 - Design voice tracks with narrator voice-over and/or short character dialogue/monologue. Make sure each character has a chance to speak
 
+Use this reference to determine the appearance of the characters:
+${state$.value.characters.map((ele) => `${ele.characterName}: ${ele.characterDescription}`).join("\n")}
+
 The last scene must have an empty description with a single voice track item, creatively announcing the movie's name and tease that it will come to theater in Summer 2025.
+Generate the movie name at the end.
 
 Respond in valid JSON, with the following type interface:
 
@@ -772,11 +782,11 @@ Respond in valid JSON, with the following type interface:
       utterance: string;
     }[]
   }[],
+  movieName: string;
 }
-
 `,
         user`
-Please make a movie trailer for this story. Make sure to create suspense and excitement:
+Please make a movie trailer for this story. Make sure to createsuspense and excitement:
 
 ${state$.value.scenes.map((scene, i) => `Chapter ${i + 1}: ${scene.narration}`).join("\n")}
 `,
@@ -795,9 +805,31 @@ ${state$.value.scenes.map((scene, i) => `Chapter ${i + 1}: ${scene.narration}`).
           (parsed) => typeof parsed.key === "number" && typeof (parsed.value as any)?.sceneDescription === "string",
         ),
         tap((parsed) => {
+          const sceneIndex = parsed.key as number;
+
+          azureDalleNode
+            .generateImage({
+              prompt: (parsed.value as any).sceneDescription + " " + claymationStyle, // TODO adjust style filter
+              style: "vivid",
+              size: "1792x1024",
+            })
+            .then((generatedImage) => {
+              state$.next({
+                ...state$.value,
+                trailer: state$.value.trailer.map((scene, i) =>
+                  i === sceneIndex
+                    ? {
+                        ...scene,
+                        imageUrl: generatedImage.data.at(0)?.url ?? `https://placeholder.co/1600X900?text=Error`,
+                      }
+                    : scene,
+                ),
+              });
+            });
+
           state$.next({
             ...state$.value,
-            trailer: [...state$.value.trailer, parsed.value as any],
+            trailer: [...state$.value.trailer, parsed.value as any as TrailerScene],
           });
         }),
       )
@@ -840,11 +872,22 @@ ${state$.value.scenes.map((scene, i) => `Chapter ${i + 1}: ${scene.narration}`).
   useTrailerPlay() {
     return state$.pipe(
       map((state) => state.trailer.find((e) => e.isActive)),
+      distinctUntilChanged((a, b) => a?.imageUrl === b?.imageUrl),
+      tap((scene) => {
+        if (!scene) return;
+
+        trailerImage.src =
+          scene.imageUrl ?? `https://placehold.co/400?text=${encodeURIComponent(scene.sceneDescription)}`;
+      }),
+    );
+  }
+
+  useTrailerVoiceover() {
+    return state$.pipe(
+      map((state) => state.trailer.find((e) => e.isActive)),
       distinctUntilChanged((a, b) => a?.sceneDescription === b?.sceneDescription),
       switchMap((scene) => {
         if (!scene) return of([]);
-
-        trailerImage.src = `https://placehold.co/400?text=${encodeURIComponent(scene.sceneDescription)}`;
 
         // TODO require voice actor match, for now use standard narrator voice
         const epicVoice = `FF7KdobWPaiR0vkcALHF`;
@@ -861,10 +904,6 @@ ${state$.value.scenes.map((scene, i) => `Chapter ${i + 1}: ${scene.narration}`).
         );
       }),
     );
-  }
-
-  useTrailerVoiceover() {
-    return of([]);
   }
 
   changeStage(status: StoryState["stage"]) {
@@ -892,8 +931,8 @@ ${state$.value.scenes.map((scene, i) => `Chapter ${i + 1}: ${scene.narration}`).
       stage: "trailer",
       characters: [
         {
-          characterName: "Mickey Mouse",
-          characterDescription: "A friendly mouse with a red bowtie and white gloves",
+          characterName: "Ducky",
+          characterDescription: "A friendly duck with a red bowtie and white boots",
           dailyObject: "A yellow rubber duck",
         },
         {
@@ -902,27 +941,27 @@ ${state$.value.scenes.map((scene, i) => `Chapter ${i + 1}: ${scene.narration}`).
           dailyObject: "A red rubber duck",
         },
       ],
-      story: "Mickey Mouse had to find his way home",
+      story: "Ducky had to find his way home",
       scenes: [
         {
           placeholderImgUrl: "https://placehold.co/400",
-          narration: "Mickey Mouse was walking home",
-          caption: "Mickey Mouse is walking home",
+          narration: "Ducky was walking home",
+          caption: "Ducky is walking home",
         },
         {
           placeholderImgUrl: "https://placehold.co/400",
           narration: "He got lost in the magic forest",
-          caption: "Mickey Mouse is lost in the magic forest",
+          caption: "Ducky is lost in the magic forest",
         },
         {
           placeholderImgUrl: "https://placehold.co/400",
           narration: "He met a friendly fox",
-          caption: "Mickey Mouse meets a friendly fox",
+          caption: "Ducky meets a friendly fox",
         },
         {
           placeholderImgUrl: "https://placehold.co/400",
           narration: "They found his way home together",
-          caption: "Mickey Mouse and the fox find his way home together",
+          caption: "Ducky and the fox find his way home together",
         },
       ],
     });

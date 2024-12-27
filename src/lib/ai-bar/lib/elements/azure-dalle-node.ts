@@ -12,7 +12,13 @@ export const promptImprovementsMap = new Map<string, string>();
 const endpointLoadBalancer = new EndpointLoadBalancer();
 
 export class AzureDalleNode extends HTMLElement {
-  async generateImage(config: { prompt: string; style: "natural" | "vivid"; revise?: boolean }) {
+  async generateImage(config: {
+    prompt: string;
+    style: "natural" | "vivid";
+    revise?: boolean;
+    size?: string;
+    n?: number;
+  }) {
     const { connection, capacityManager } = endpointLoadBalancer.next();
     await capacityManager.consumeCapacity();
 
