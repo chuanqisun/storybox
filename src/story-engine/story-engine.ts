@@ -87,6 +87,7 @@ const styles = [claymationStyle, needleFeltedScene];
 
 export class StoryEngine {
   private subs: Subscription[] = [];
+  private history = [] as string[];
 
   start() {
     const sharedSub = merge(this.useVisionLoadCounter()).subscribe();
@@ -294,6 +295,8 @@ export class StoryEngine {
                   story,
                 });
 
+                this.history.push(`User: I'm creating scenes for the story: ${story}`);
+
                 this.changeStage("editing");
               });
 
@@ -471,6 +474,8 @@ ${guestAvatars.map((avatar, i) => `Guest ${i + 1}: ${avatar.getAttribute("data-n
 
   useGuestInterview() {
     let currentGuest: AvatarElement | null = null;
+    let currentTasks: AbortController[] = [];
+    let currentSubs: Subscription[] = [];
 
     const getAvatarName = (e: Event) => (e.target as HTMLElement).closest("avatar-element") as AvatarElement;
 
@@ -480,6 +485,8 @@ ${guestAvatars.map((avatar, i) => `Guest ${i + 1}: ${avatar.getAttribute("data-n
       tap((avatar) => {
         currentGuest = avatar;
         azureSttNode.start();
+        currentTasks.forEach((task) => task.abort());
+        currentTasks = [];
         realtime.mute();
       }),
     );
@@ -487,7 +494,6 @@ ${guestAvatars.map((avatar, i) => `Guest ${i + 1}: ${avatar.getAttribute("data-n
       map(getAvatarName),
       filter((name) => !!name),
       tap(() => {
-        currentGuest = null;
         azureSttNode.stop();
         realtime.unmute();
       }),
@@ -508,7 +514,7 @@ ${guestAvatars.map((avatar, i) => `Guest ${i + 1}: ${avatar.getAttribute("data-n
     );
 
     const handleUserSpeech$ = fromEvent<CustomEvent<AIBarEventDetail>>(azureSttNode, "event").pipe(
-      tap((event) => {
+      tap(async (event) => {
         if (!event.detail.recognized) return;
         event.stopPropagation();
 
@@ -518,7 +524,80 @@ ${guestAvatars.map((avatar, i) => `Guest ${i + 1}: ${avatar.getAttribute("data-n
         } else {
           const recognizedText = event.detail.recognized.text;
           console.log({ recognizedText });
-          // TODO: handle recognizedSpeech
+
+          const latestScene = state$.value.scenes.at(-1)!;
+
+          const that = this;
+
+          const abortController = new AbortController();
+          currentTasks.push(abortController);
+          const response = await llmNode.getClient("aoai").beta.chat.completions.runTools(
+            {
+              messages: [
+                system`
+Simulate an audience interview during a storytelling event. The user is interviewing the following audience:
+${state$.value.guests.map((guest) => `${guest.name} (${guest.background})`).join("\n")}
+
+Transcript of the discussion so far:
+${this.history.join("\n")}
+
+User is currently showing on screen: ${latestScene.caption}
+The user is pointing the microphone at ${currentGuest?.getAttribute("data-name")}, but other guests may continue the discussion. 
+
+Now use the speak_as tool to simulate the audience response. Do NOT add additional response after using the tool.
+              `,
+                user`${recognizedText}`,
+              ],
+              model: "gpt-4o",
+              tools: [
+                {
+                  type: "function",
+                  function: {
+                    function: function speak_as(props: { name: string; utterance: string }) {
+                      azureTtsNode
+                        .queue(props.utterance, {
+                          voice: $<AvatarElement>(`avatar-element[data-name="${props.name}"]`)?.getAttribute(
+                            "data-voice-id",
+                          )!,
+                        })
+                        .then(() => {
+                          that.history.push(`${props.name}: ${props.utterance}`);
+                          console.log(`${props.name}: ${props.utterance}`);
+                        });
+
+                      return `${props.name} ended speaking`;
+                    },
+                    description: "Speak as one of the guests",
+                    parse: JSON.parse,
+
+                    parameters: {
+                      type: "object",
+                      required: ["name", "utterance"],
+                      properties: {
+                        name: {
+                          type: "string",
+                          description: "Name of the character",
+                          enum: state$.value.guests.map((guest) => guest.name),
+                        },
+                        utterance: {
+                          type: "string",
+                          description: "One sentence brief utterance",
+                        },
+                      },
+                    },
+                  },
+                },
+              ],
+            },
+            {
+              signal: abortController.signal,
+            },
+          );
+
+          // store user speech after the response is generated
+          this.history.push(`User: ${recognizedText}`);
+
+          await response.finalContent();
         }
       }),
     );
@@ -557,6 +636,8 @@ ${guestAvatars.map((avatar, i) => `Guest ${i + 1}: ${avatar.getAttribute("data-n
                 ],
               });
 
+              this.history.push(`(User: I added scene ${state$.value.scenes.length}: ${args.narration}`);
+
               return `Scene ${state$.value.scenes.length} created. You must now respond with the narration: "${args.narration}"`;
             },
           })
@@ -593,6 +674,8 @@ ${guestAvatars.map((avatar, i) => `Guest ${i + 1}: ${avatar.getAttribute("data-n
                     : scene,
                 ),
               });
+
+              this.history.push(`(User: I updated scene ${state$.value.scenes.length}: ${args.update.narration}`);
 
               return `Scene ${state$.value.scenes.length} updated.`;
             },
