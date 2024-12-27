@@ -14,12 +14,6 @@ export class CameraNode extends HTMLElement {
   private changeThreshold: number = 0.02;
   private dynamicScanDebounce = 200;
   private stream: MediaStream | null = null;
-  private cameraConstraints: MediaStreamConstraints = {
-    video: {
-      width: { min: 200, ideal: 400 },
-      height: { min: 200, ideal: 400 },
-    },
-  };
   private diffStream$ = new Subject<number>();
   private diffStreamSub: Subscription | null = null;
 
@@ -206,6 +200,11 @@ export class CameraNode extends HTMLElement {
         });
 
         webcamSelect.addEventListener("change", saveSelectedDevice);
+
+        const previousSelected = localStorage.getItem("selectedWebcamDeviceId");
+        if (previousSelected && videoDevices.some((device) => device.deviceId === previousSelected)) {
+          webcamSelect.value = previousSelected;
+        }
       }
     } catch (error) {
       console.error("Error accessing media devices.", error);
