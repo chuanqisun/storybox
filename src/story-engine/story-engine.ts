@@ -75,13 +75,14 @@ const state$ = new BehaviorSubject<StoryState>({
   vision: "",
 });
 
+export const characterImagePrompt$ = new Subject<{ characterName: string; characterDescription: string }>();
+
 const claymationStyle = `A claymation-style image with a warm, autumnal color palette. The lighting is soft and diffused, creating a gentle, almost nostalgic mood. The textures are highly tactile, emphasizing the handmade quality of the materials.  The overall aesthetic is whimsical and slightly surreal, with a focus on creating a sense of depth and detail despite the simplistic forms. The rendering style is painterly, with visible brushstrokes or sculpting marks adding to the handcrafted feel.  Colors are muted and slightly desaturated, with a predominance of oranges, browns, and greens.  The background is slightly blurred, drawing attention to the main focus.`;
 const needleFeltedScene = `Render in Needle felted miniature scene. The color palette is muted and pastel, featuring various shades of orange, pink, green, and teal. The lighting is soft and diffused, creating a gentle, whimsical atmosphere. The overall style is reminiscent of children's book illustration, with a focus on texture and detail. The rendering is highly detailed, with a focus on the texture of the felt and the three-dimensionality of the miniature elements.  The scene is highly saturated, but the colors are soft and not harsh. The overall feel is cozy and inviting.`;
 const styles = [claymationStyle, needleFeltedScene];
 
 export class StoryEngine {
   private subs: Subscription[] = [];
-  private characterImagePrompt$ = new Subject<{ characterName: string; characterDescription: string }>();
 
   start() {
     const sub = state$
@@ -243,7 +244,7 @@ Now work with the user to develop the story one scene at a time.
   }
 
   useCustomizerVisualOutput() {
-    return this.characterImagePrompt$.pipe(
+    return characterImagePrompt$.pipe(
       switchMap(async (prompt) => {
         togetherAINode.generateImageDataURL(prompt.characterDescription + ` ${claymationStyle}`).then((dataUrl) => {
           state$.next({
@@ -286,7 +287,7 @@ Now work with the user to develop the story one scene at a time.
                 characters: [...state$.value.characters, newCharacter],
               });
 
-              this.characterImagePrompt$.next({
+              characterImagePrompt$.next({
                 characterName: args.characterName,
                 characterDescription: args.characterDescription,
               });
@@ -338,7 +339,7 @@ Now work with the user to develop the story one scene at a time.
                 characterDescription: args.update.characterDescription,
               };
 
-              this.characterImagePrompt$.next({
+              characterImagePrompt$.next({
                 characterName: args.update.characterName,
                 characterDescription: updatedElement.characterDescription,
               });
