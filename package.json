@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@dicebear/collection": "^9.2.2",
+    "@dicebear/core": "^9.2.2",
     "@google/generative-ai": "^0.21.0",
     "@streamparser/json": "^0.0.21",
     "lit": "^3.2.1",

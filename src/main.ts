@@ -5,9 +5,11 @@ import { loadAIBar } from "./lib/ai-bar/loader";
 import { $, parseActionEvent } from "./lib/dom";
 import { StoryEngine } from "./story-engine/story-engine";
 
+import { defineAvatarElement } from "./components/avatar-element";
 import "./main.css";
 
 loadAIBar();
+defineAvatarElement();
 
 const realtime = $<OpenAIRealtimeNode>("openai-realtime-node")!;
 const connectButton = $<HTMLButtonElement>(`button[data-action="connect"]`)!;
@@ -64,6 +66,10 @@ const globalClick$ = fromEvent(document, "click").pipe(
         cameraNode.stop();
         cameraButton.dataset.action = "enable-camera";
         cameraButton.textContent = "Enable Camera";
+        break;
+      }
+      case "debug-scenes": {
+        storyEngine.debugScenes();
         break;
       }
     }

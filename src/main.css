@@ -61,6 +61,7 @@ h6 {
 
 :root {
   color-scheme: dark;
+  --caption-height: 80px;
 }
 
 body {
@@ -86,6 +87,17 @@ body {
   &.presenting {
     --ui-opacity: 0;
   }
+}
+
+#audience {
+  position: absolute;
+
+  display: flex;
+  justify-content: center;
+  margin: auto;
+  bottom: var(--caption-height);
+  left: 0;
+  right: 0;
 }
 
 .character-grid {
@@ -123,7 +135,6 @@ body {
 header {
   z-index: 1;
   position: fixed;
-  width: 400px;
   top: 0;
   left: 0;
   padding: 0;
@@ -190,14 +201,14 @@ menu {
     height: 100vh;
 
     img {
-      height: calc(100vh - 80px);
+      height: calc(100vh - var(--caption-height));
       object-fit: cover;
     }
 
     p {
       position: absolute;
       bottom: 0;
-      height: 80px;
+      height: var(--caption-height);
       left: 0;
       right: 0;
       bottom: 0;

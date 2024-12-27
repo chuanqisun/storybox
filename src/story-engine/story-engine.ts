@@ -1,8 +1,10 @@
 import { html, render } from "lit";
 import {
   BehaviorSubject,
+  concatMap,
   distinct,
   distinctUntilKeyChanged,
+  filter,
   map,
   merge,
   of,
@@ -12,11 +14,13 @@ import {
   tap,
 } from "rxjs";
 import z from "zod";
+import { AvatarElement } from "../components/avatar-element";
 import { LlmNode } from "../lib/ai-bar/lib/elements/llm-node";
 import type { OpenAIRealtimeNode } from "../lib/ai-bar/lib/elements/openai-realtime-node";
 import type { TogetherAINode } from "../lib/ai-bar/lib/elements/together-ai-node";
-import { system } from "../lib/ai-bar/lib/message";
-import { $ } from "../lib/dom";
+import { system, user } from "../lib/ai-bar/lib/message";
+import { $, $all } from "../lib/dom";
+import { parseJsonStream } from "../lib/json-stream";
 import { tryParse } from "../lib/parse";
 import { getVision } from "./vision";
 
@@ -47,8 +51,7 @@ export interface StoryScene {
 export interface StoryGuest {
   name: string;
   background: string;
-  comments: string[];
-  expression: unknown; // TODO facial expression state
+  expression: string;
 }
 
 const realtime = $<OpenAIRealtimeNode>("openai-realtime-node")!;
@@ -58,6 +61,7 @@ const llmNode = $<LlmNode>("llm-node")!;
 const timeline = $<HTMLElement>("#timeline")!;
 const captionStatus = $<HTMLElement>("#caption-status")!;
 const charactersGrid = $<HTMLElement>("#characters")!;
+const audience = $<HTMLElement>("#audience")!;
 
 const state$ = new BehaviorSubject<StoryState>({
   stage: "new",
@@ -102,8 +106,11 @@ export class StoryEngine {
                 realtime.appendUserMessage("Please create the opening scene now").createResponse();
               }, 1000);
 
+              this.generateGuests();
+
               return merge(
                 this.useSceneDisplay(),
+                this.useRenderGuests(),
                 this.useSceneEditorInstruction(),
                 this.useStableVision(),
                 this.useIncrementalVision(),
@@ -386,6 +393,74 @@ Respond in valid JSON, with the following type interface:
     );
   }
 
+  async generateGuests() {
+    const guestAvatars = [...$all<AvatarElement>("avatar-element")];
+    const names = guestAvatars.map((avatar) => avatar.getAttribute("data-name")!);
+
+    state$.next({
+      ...state$.value,
+      guests: guestAvatars.map((avatar) => ({
+        name: avatar.getAttribute("data-name")!,
+        background: "General audience", // To be replaced after generation
+        expression: "smile",
+      })),
+    });
+
+    const stream = await llmNode
+      .getClient("aoai")
+      .chat.completions.create({
+        stream: true,
+        messages: [
+          system`You are organizing a collaborative storytelling events. Based on the main characters of the story and the names of the provided guest list, infer the diverse and story related background for each guest. Respond in this valid JSON format:
+{
+  guests: {
+    name: ${names.join(" | ")},
+    background: string, // detailed background of the guest, including age, gender, ethnicity, hometown, occupation, and personal details related to the story
+  }[]        
+}
+        `,
+          user`
+Main characters:
+${state$.value.characters.map((ele) => `${ele.characterName} (${ele.characterDescription})`).join("\n")}
+
+Guest list:
+${guestAvatars.map((avatar, i) => `Guest ${i + 1}: ${avatar.getAttribute("data-name")!} (${avatar.getAttribute("data-gender")})`).join("\n")}
+        `,
+        ],
+        model: "gpt-4o",
+        temperature: 0.7,
+        response_format: {
+          type: "json_object",
+        },
+      })
+      .then(parseJsonStream);
+
+    stream
+      .pipe(
+        filter((value) => typeof value.key === "number"),
+        tap((v) => {
+          state$.next({
+            ...state$.value,
+            guests: state$.value.guests.map((guest) =>
+              guest.name === (v.value as any).name ? { ...guest, background: (v.value as any).background } : guest,
+            ),
+          });
+        }),
+      )
+      .subscribe();
+  }
+
+  useRenderGuests() {
+    return state$.pipe(
+      concatMap((state) => state.guests),
+      tap((guest) => {
+        const avatar = $<AvatarElement>(`avatar-element[data-name="${guest.name}"]`);
+        avatar?.setAttribute("data-mouth", guest.expression);
+        avatar?.setAttribute("data-background", guest.background);
+      }),
+    );
+  }
+
   useSceneEditorInstruction() {
     return state$.pipe(
       distinct((state) => JSON.stringify([state.scenes, state.vision])),
@@ -506,5 +581,20 @@ Now work with the user to develop the story one scene at a time.
 
   changeStage(status: StoryState["stage"]) {
     state$.next({ ...state$.value, stage: status });
+  }
+
+  debugScenes() {
+    state$.next({
+      ...state$.value,
+      stage: "editing",
+      characters: [
+        {
+          characterName: "Mickey Mouse",
+          characterDescription: "A friendly mouse with a red bowtie and white gloves",
+          dailyObject: "A yellow rubber duck",
+        },
+      ],
+      story: "Mickey Mouse had to find his way home",
+    });
   }
 }

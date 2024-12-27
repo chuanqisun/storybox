@@ -15,6 +15,7 @@
           <button data-action="mute">Mute</button>
           <button data-action="enable-camera">Enable camera</button>
           <button data-action="present">Present</button>
+          <button data-action="debug-scenes">Debug scenes</button>
           <div id="caption-status"></div>
         </menu>
         <div class="monitor-layout">
@@ -24,7 +25,12 @@
       </header>
       <main data-stage="customizing">
         <div data-visible-stage="customizing" id="characters" class="character-grid"></div>
-        <div data-visible-stage="playing" id="timeline"></div>
+        <div data-visible-stage="editing" id="timeline"></div>
+        <div id="audience">
+          <avatar-element></avatar-element>
+          <avatar-element></avatar-element>
+          <avatar-element></avatar-element>
+        </div>
       </main>
     </div>
     <ai-bar auto-hide>
