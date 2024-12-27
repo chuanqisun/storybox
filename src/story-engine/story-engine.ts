@@ -70,6 +70,7 @@ export interface TrailerScene {
   sceneDescription: string;
   imageUrl?: string;
   voiceTracks: VoiceTrack[];
+  reactions?: string[];
   played?: boolean;
 }
 
@@ -806,7 +807,6 @@ ${state$.value.scenes.map((scene, i) => `Chapter ${i + 1}: ${scene.narration}`).
       model: "gpt-4o",
     });
 
-    // TODO generate images for each scene
     // TODO match voice character
     parseJsonStream(task)
       .pipe(
@@ -815,6 +815,48 @@ ${state$.value.scenes.map((scene, i) => `Chapter ${i + 1}: ${scene.narration}`).
         ),
         tap((parsed) => {
           const sceneIndex = parsed.key as number;
+          const parsedScene = parsed.value as any as TrailerScene;
+
+          aoai.chat.completions
+            .create({
+              messages: [
+                system`
+React to a movie trailer scene with "Bullet Screen" (弹幕).
+Simulate 5 - 10 comments from various online viewers. Use online forum idioms. Use exaggerated punctuation and Kaomoji sparingly. No Emoji. English only. 
+
+Respond in this JSON format 
+
+{
+  reactions: {
+    username: string;
+    message: string;
+  }[]
+}
+`,
+                user`
+Scene: ${parsedScene.sceneDescription.length ? parsedScene.sceneDescription : "Fade to black, showing movie title and release time"}
+Voice-over:
+${(parsed.value as any).voiceTracks.map((track: any) => `${track.speaker}: ${track.utterance}`).join("\n")}`,
+              ],
+              model: "gpt-4o",
+              response_format: {
+                type: "json_object",
+              },
+            })
+            .then((response) => {
+              const { reactions } = tryParse(response.choices[0].message.content!, { reactions: [] });
+              state$.next({
+                ...state$.value,
+                trailer: state$.value.trailer.map((scene, i) =>
+                  i === sceneIndex
+                    ? {
+                        ...scene,
+                        reactions,
+                      }
+                    : scene,
+                ),
+              });
+            });
 
           azureDalleNode
             .generateImage({
@@ -889,7 +931,7 @@ ${state$.value.scenes.map((scene, i) => `Chapter ${i + 1}: ${scene.narration}`).
 
         const nextIndex = (currentIndex + 1) % state.trailer.length;
         const nextScene = state.trailer[currentIndex + 1];
-        const isNextSceneReady = nextScene?.imageUrl !== undefined;
+        const isNextSceneReady = nextScene?.imageUrl !== undefined && Array.isArray(nextScene?.reactions);
 
         if (!isEnded && currentScenePlayed && isNextSceneReady) {
           return { nextIndex, isEnded };
