@@ -121,7 +121,7 @@ body {
   }
 }
 
-#guests {
+.guests-grid {
   position: absolute;
 
   display: flex;
@@ -130,6 +130,17 @@ body {
   bottom: var(--caption-height);
   left: 0;
   right: 0;
+
+  animation: slide-up 0.5s both;
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(80px);
+  }
+  to {
+    transform: translateY(0);
+  }
 }
 
 header {
