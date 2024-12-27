@@ -89,17 +89,6 @@ body {
   }
 }
 
-#audience {
-  position: absolute;
-
-  display: flex;
-  justify-content: center;
-  margin: auto;
-  bottom: var(--caption-height);
-  left: 0;
-  right: 0;
-}
-
 .character-grid {
   display: grid;
   /* grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); */
@@ -130,6 +119,17 @@ body {
   [data-visible-state]:not([data-visible-state="premiere"]) {
     display: none;
   }
+}
+
+#guests {
+  position: absolute;
+
+  display: flex;
+  justify-content: center;
+  margin: auto;
+  bottom: var(--caption-height);
+  left: 0;
+  right: 0;
 }
 
 header {

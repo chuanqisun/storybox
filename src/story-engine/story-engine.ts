@@ -5,6 +5,7 @@ import {
   distinct,
   distinctUntilKeyChanged,
   filter,
+  fromEvent,
   map,
   merge,
   of,
@@ -15,9 +16,12 @@ import {
 } from "rxjs";
 import z from "zod";
 import { AvatarElement } from "../components/avatar-element";
+import { AzureSttNode } from "../lib/ai-bar/lib/elements/azure-stt-node";
+import { AzureTtsNode, type StateChangeEventDetail } from "../lib/ai-bar/lib/elements/azure-tts-node";
 import { LlmNode } from "../lib/ai-bar/lib/elements/llm-node";
 import type { OpenAIRealtimeNode } from "../lib/ai-bar/lib/elements/openai-realtime-node";
 import type { TogetherAINode } from "../lib/ai-bar/lib/elements/together-ai-node";
+import type { AIBarEventDetail } from "../lib/ai-bar/lib/events";
 import { system, user } from "../lib/ai-bar/lib/message";
 import { $, $all } from "../lib/dom";
 import { parseJsonStream } from "../lib/json-stream";
@@ -61,7 +65,9 @@ const llmNode = $<LlmNode>("llm-node")!;
 const timeline = $<HTMLElement>("#timeline")!;
 const captionStatus = $<HTMLElement>("#caption-status")!;
 const charactersGrid = $<HTMLElement>("#characters")!;
-const audience = $<HTMLElement>("#audience")!;
+const guests = $<HTMLElement>("#guests")!;
+const azureSttNode = $<AzureSttNode>("azure-stt-node")!;
+const azureTtsNode = $<AzureTtsNode>("azure-tts-node")!;
 
 const state$ = new BehaviorSubject<StoryState>({
   stage: "new",
@@ -102,6 +108,7 @@ export class StoryEngine {
               );
             }
             case "editing": {
+              // FIXME: avoid using manual timing
               setTimeout(() => {
                 realtime.appendUserMessage("Please create the opening scene now").createResponse();
               }, 1000);
@@ -111,6 +118,7 @@ export class StoryEngine {
               return merge(
                 this.useSceneDisplay(),
                 this.useRenderGuests(),
+                this.useGuestInterview(),
                 this.useSceneEditorInstruction(),
                 this.useStableVision(),
                 this.useIncrementalVision(),
@@ -459,6 +467,63 @@ ${guestAvatars.map((avatar, i) => `Guest ${i + 1}: ${avatar.getAttribute("data-n
         avatar?.setAttribute("data-background", guest.background);
       }),
     );
+  }
+
+  useGuestInterview() {
+    let currentGuest: AvatarElement | null = null;
+
+    const getAvatarName = (e: Event) => (e.target as HTMLElement).closest("avatar-element") as AvatarElement;
+
+    const mouseDown$ = fromEvent(guests, "mousedown").pipe(
+      map(getAvatarName),
+      filter((name) => !!name),
+      tap((avatar) => {
+        currentGuest = avatar;
+        azureSttNode.start();
+        realtime.mute();
+      }),
+    );
+    const mouseUp$ = fromEvent(guests, "mouseup").pipe(
+      map(getAvatarName),
+      filter((name) => !!name),
+      tap(() => {
+        currentGuest = null;
+        azureSttNode.stop();
+        realtime.unmute();
+      }),
+    );
+
+    const updateSpeakingVoice$ = fromEvent<CustomEvent<StateChangeEventDetail>>(azureTtsNode, "statechange").pipe(
+      tap((event) => {
+        const { voice, isOn } = (event as CustomEvent<StateChangeEventDetail>).detail;
+        $all<AvatarElement>(`avatar-element[data-speaking]`).forEach((e) => {
+          const avatarVoice = e.getAttribute("data-voice-id");
+          if (avatarVoice === voice && isOn) {
+            e.setAttribute("data-speaking", "");
+          } else {
+            e.removeAttribute("data-speaking");
+          }
+        });
+      }),
+    );
+
+    const handleUserSpeech$ = fromEvent<CustomEvent<AIBarEventDetail>>(azureSttNode, "event").pipe(
+      tap((event) => {
+        if (!event.detail.recognized) return;
+        event.stopPropagation();
+
+        if (!event.detail.recognized.text) {
+          // TODO: handle this as user's intent to interrupt
+          azureTtsNode.clear();
+        } else {
+          const recognizedText = event.detail.recognized.text;
+          console.log({ recognizedText });
+          // TODO: handle recognizedSpeech
+        }
+      }),
+    );
+
+    return merge(mouseDown$, mouseUp$, updateSpeakingVoice$, handleUserSpeech$);
   }
 
   useSceneEditorInstruction() {

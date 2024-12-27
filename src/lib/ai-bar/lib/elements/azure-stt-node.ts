@@ -22,6 +22,7 @@ export class AzureSttNode extends HTMLElement implements SpeechToTextProvider {
   }
 
   public async startMicrophone() {
+    if (this.isMicrophoneStarted) return;
     const media = await navigator.mediaDevices.getUserMedia({ audio: true });
     this.mediaRecorderAsync.resolve(new MediaRecorder(media));
     this.isMicrophoneStarted = true;

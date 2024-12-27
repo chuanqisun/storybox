@@ -6,6 +6,8 @@ import { $, parseActionEvent } from "./lib/dom";
 import { StoryEngine } from "./story-engine/story-engine";
 
 import { defineAvatarElement } from "./components/avatar-element";
+import type { AzureSttNode } from "./lib/ai-bar/lib/elements/azure-stt-node";
+import type { AzureTtsNode } from "./lib/ai-bar/lib/elements/azure-tts-node";
 import "./main.css";
 
 loadAIBar();
@@ -16,6 +18,8 @@ const connectButton = $<HTMLButtonElement>(`button[data-action="connect"]`)!;
 const muteButton = $<HTMLButtonElement>(`button[data-action="mute"]`)!;
 const cameraButton = $<HTMLButtonElement>(`button[data-action="enable-camera"]`)!;
 const cameraNode = $<CameraNode>("camera-node")!;
+const azureSttNode = $<AzureSttNode>("azure-stt-node")!;
+const azureTtsNode = $<AzureTtsNode>("azure-tts-node")!;
 
 const storyEngine = new StoryEngine();
 
@@ -32,6 +36,8 @@ const globalClick$ = fromEvent(document, "click").pipe(
         connectButton.textContent = "Connecting...";
         await realtime.start();
         storyEngine.start();
+        azureSttNode.startMicrophone();
+        azureTtsNode.startSpeaker();
         connectButton.textContent = "Disconnect";
         connectButton.dataset.action = "disconnect";
         break;
