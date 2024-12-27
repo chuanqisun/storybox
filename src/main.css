@@ -202,6 +202,43 @@ menu {
   gap: 0.25rem;
 }
 
+#premiere {
+  position: relative;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  img {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+  }
+
+  #closed-caption {
+    height: 72px;
+    overflow-y: scroll;
+    position: absolute;
+    bottom: 8px;
+    left: 0;
+    right: 0;
+    font-size: 16px;
+    display: flex;
+    flex-direction: column;
+    align-content: start;
+    gap: 4px;
+
+    &::-webkit-scrollbar {
+      width: 0px;
+      background: transparent; /* make scrollbar transparent */
+    }
+  }
+
+  p {
+    margin: auto;
+    width: min(40rem, calc(100% - 32px));
+  }
+}
+
 #timeline {
   * {
     display: none;
