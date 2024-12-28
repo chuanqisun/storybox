@@ -6,6 +6,10 @@ export function defineMicrophoneNode() {
 
 export class MicrophoneNode extends HTMLElement {
   private stream: MediaStream | null = null;
+  private audioContext: AudioContext | null = null;
+  private analyser: AnalyserNode | null = null;
+  private dataArray: Uint8Array | null = null;
+  private animationFrameId: number | null = null;
 
   shadowRoot = attachShadowHtml(
     this,
@@ -33,7 +37,7 @@ export class MicrophoneNode extends HTMLElement {
 </style>
 <button>🎙️</button>
 <dialog style="width: min(60rem, calc(100vw - 32px))">
-  <form  method="dialog">
+  <form method="dialog">
     <label for="microphone">Select Microphone</label>
     <select name="microphone" id="microphoneSelect">
         <option value="" disabled selected>Select a microphone</option>
@@ -54,7 +58,7 @@ export class MicrophoneNode extends HTMLElement {
     });
     this.initSetupForm();
 
-    // handle model close
+    // handle modal close
     this.shadowRoot.querySelector("dialog")?.addEventListener("close", () => {
       this.stop();
     });
@@ -79,8 +83,20 @@ export class MicrophoneNode extends HTMLElement {
         },
       };
       this.stream = await navigator.mediaDevices.getUserMedia(constraints);
+
+      // Initialize audio context and analyser
+      this.audioContext = new AudioContext();
+      this.analyser = this.audioContext.createAnalyser();
+      const source = this.audioContext.createMediaStreamSource(this.stream);
+      source.connect(this.analyser);
+
+      this.analyser.fftSize = 256;
+      const bufferLength = this.analyser.frequencyBinCount;
+      this.dataArray = new Uint8Array(bufferLength);
+
+      this.updateVolumeMeter();
     } catch (error) {
-      console.error("Error accessing webcam:", error);
+      console.error("Error accessing microphone:", error);
     }
   }
 
@@ -89,6 +105,28 @@ export class MicrophoneNode extends HTMLElement {
       this.stream.getTracks().forEach((track) => track.stop());
       this.stream = null;
     }
+    if (this.audioContext) {
+      this.audioContext.close();
+      this.audioContext = null;
+    }
+    if (this.animationFrameId) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+    }
+  }
+
+  private updateVolumeMeter(): void {
+    if (!this.analyser || !this.dataArray) return;
+
+    this.analyser.getByteFrequencyData(this.dataArray);
+    const volume = this.dataArray.reduce((acc, val) => acc + val, 0) / this.dataArray.length / 255;
+
+    const volumeMeter = this.shadowRoot!.getElementById("volume-meter") as HTMLMeterElement;
+    const volumeDisplay = this.shadowRoot!.getElementById("volume-display") as HTMLSpanElement;
+    volumeMeter.value = volume;
+    volumeDisplay.textContent = ` (${(volume * 100).toFixed(0)}%)`;
+
+    this.animationFrameId = requestAnimationFrame(() => this.updateVolumeMeter());
   }
 
   private async initSetupForm(): Promise<void> {
@@ -102,6 +140,9 @@ export class MicrophoneNode extends HTMLElement {
           // Save the selected device ID in local storage
           localStorage.setItem("selectedMicrophoneDeviceId", selectedDeviceId);
           console.log("Microphone device ID saved:", selectedDeviceId);
+
+          this.stop();
+          this.start();
         }
       }
     };
