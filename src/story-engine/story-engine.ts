@@ -134,7 +134,6 @@ export class StoryEngine {
   private danmaku: Danmaku | null = null;
 
   start() {
-    this.danmaku = new Danmaku({ container: danmuContainer, speed: 120 });
     const sharedSub = merge(this.useVisionLoadCounter()).subscribe();
     const stateSub = state$
       .pipe(
@@ -173,7 +172,11 @@ export class StoryEngine {
 
             case "trailer": {
               realtime.muteMicrophone();
+              realtime.muteSpeaker();
               this.generateTrailer();
+              if (!this.danmaku) {
+                this.danmaku = new Danmaku({ container: danmuContainer, speed: 120 });
+              }
 
               return merge(
                 this.useTrailerControl(),
