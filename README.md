@@ -8,10 +8,10 @@ Tangible Stories
 - Refine render styles
 - Increase VAD trigger threshold
 - Add state machine visualization to system design
-- Avatar name tag hide during silhouette
 
 ## DONE
 
+- Avatar name tag hide during silhouette
 - Text wrap: balance for title
 - Character grid layout, use baseball card style
 - Adjust sketch aspect ratio for screen

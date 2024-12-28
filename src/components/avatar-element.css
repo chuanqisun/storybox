@@ -1,10 +1,12 @@
 avatar-element {
   display: contents;
   --brightness: 1;
+  --name-plate-opacity: 1;
 }
 
 avatar-element:not(:hover):not([data-speaking]) {
   --brightness: 0;
+  --name-plate-opacity: 0;
 }
 
 .avatar-button {
@@ -14,9 +16,11 @@ avatar-element:not(:hover):not([data-speaking]) {
   background: none;
   border: none;
   position: relative;
-  filter: brightness(var(--brightness));
 
-  transition: filter 0.2s ease-out;
+  svg {
+    filter: brightness(var(--brightness));
+    transition: filter 0.2s ease-out;
+  }
 
   .name-plate {
     margin-inline: auto;
@@ -31,5 +35,8 @@ avatar-element:not(:hover):not([data-speaking]) {
     background: rgba(0, 0, 0, 0.725);
     color: white;
     border-radius: 40px;
+
+    opacity: var(--name-plate-opacity);
+    transition: opacity 0.2s ease-out;
   }
 }
