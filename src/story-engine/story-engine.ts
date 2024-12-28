@@ -70,6 +70,7 @@ export interface StoryGuest {
 export interface TrailerScene {
   isActive?: boolean;
   isCover?: boolean;
+  isEnding?: boolean;
   sceneDescription: string;
   imageUrl?: string;
   voiceTracks: VoiceTrack[];
@@ -828,8 +829,7 @@ ${state$.value.scenes.map((scene, i) => `Chapter ${i + 1}: ${scene.narration}`).
         startWith({
           key: 0,
           value: {
-            sceneDescription:
-              "Green background trailer cover that says THE FOLLOWING PREVIEW HAS BEEN APPROVED FOR ALL AUDIENCES, RATED G",
+            sceneDescription: `Green background trailer cover that says THE FOLLOWING PREVIEW HAS BEEN APPROVED FOR ALL AUDIENCES, RATED G. Rumor goes that the story might feature ${state$.value.characters.map((c) => c.characterName).join(", ")}`,
             isCover: true,
             voiceTracks: [],
           } satisfies TrailerScene,
@@ -857,7 +857,7 @@ Respond in this JSON format
 `,
                 user`
 Scene: ${parsedScene.sceneDescription.length ? parsedScene.sceneDescription : "Fade to black, showing movie title and release time"}
-Voice-over:
+${parsedScene.isCover ? "" : "Voice-over:"}
 ${(parsed.value as any).voiceTracks.map((track: any) => `${track.speaker}: ${track.utterance}`).join("\n")}`,
               ],
               model: "gpt-4o",
