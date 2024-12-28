@@ -13,6 +13,7 @@ import {
   map,
   merge,
   of,
+  startWith,
   Subject,
   Subscription,
   switchMap,
@@ -68,6 +69,7 @@ export interface StoryGuest {
 
 export interface TrailerScene {
   isActive?: boolean;
+  isCover?: boolean;
   sceneDescription: string;
   imageUrl?: string;
   voiceTracks: VoiceTrack[];
@@ -821,16 +823,28 @@ ${state$.value.scenes.map((scene, i) => `Chapter ${i + 1}: ${scene.narration}`).
         filter(
           (parsed) => typeof parsed.key === "number" && typeof (parsed.value as any)?.sceneDescription === "string",
         ),
+        // offset the key by 1 to make room for the trailer scene
+        map((parsed) => ({ ...parsed, key: (parsed.key as number) + 1 })),
+        startWith({
+          key: 0,
+          value: {
+            sceneDescription:
+              "Green background trailer cover that says THE FOLLOWING PREVIEW HAS BEEN APPROVED FOR ALL AUDIENCES, RATED G",
+            isCover: true,
+            voiceTracks: [],
+          } satisfies TrailerScene,
+        }),
         tap((parsed) => {
           const sceneIndex = parsed.key as number;
           const parsedScene = parsed.value as any as TrailerScene;
 
+          // Generate reactions
           aoai.chat.completions
             .create({
               messages: [
                 system`
 React to a movie trailer scene with "Bullet Screen" (弹幕).
-Simulate 5 - 10 comments from various online viewers. Use online forum idioms. Use exaggerated punctuation and Kaomoji sparingly. No Emoji. English only. 
+Simulate ${parsedScene.isCover ? "20" : "5 - 10"} comments from various online viewers. Use online forum idioms. Use exaggerated punctuation and Kaomoji sparingly. No Emoji. English only. 
 
 Respond in this JSON format 
 
@@ -860,31 +874,53 @@ ${(parsed.value as any).voiceTracks.map((track: any) => `${track.speaker}: ${tra
                     ? {
                         ...scene,
                         reactions,
+                        ...(sceneIndex === 0
+                          ? {
+                              // Trailer scene is active by default
+                              isActive: true,
+                              played: true,
+                            }
+                          : {}),
                       }
                     : scene,
                 ),
               });
             });
 
-          azureDalleNode
-            .generateImage({
-              prompt: (parsed.value as any).sceneDescription + " " + claymationStyle, // TODO adjust style filter
-              style: "vivid",
-              size: "1792x1024",
-            })
-            .then((generatedImage) => {
-              state$.next({
-                ...state$.value,
-                trailer: state$.value.trailer.map((scene, i) =>
-                  i === sceneIndex
-                    ? {
-                        ...scene,
-                        imageUrl: generatedImage.data.at(0)?.url ?? `https://placeholder.co/1600X900?text=Error`,
-                      }
-                    : scene,
-                ),
-              });
+          // Generate images
+          if (parsedScene.isCover) {
+            state$.next({
+              ...state$.value,
+              trailer: state$.value.trailer.map((scene, i) =>
+                i === sceneIndex
+                  ? {
+                      ...scene,
+                      imageUrl: `${import.meta.env.BASE_URL}/trailer-cover.png`,
+                    }
+                  : scene,
+              ),
             });
+          } else {
+            azureDalleNode
+              .generateImage({
+                prompt: parsedScene.sceneDescription + " " + claymationStyle, // TODO adjust style filter
+                style: "vivid",
+                size: "1792x1024",
+              })
+              .then((generatedImage) => {
+                state$.next({
+                  ...state$.value,
+                  trailer: state$.value.trailer.map((scene, i) =>
+                    i === sceneIndex
+                      ? {
+                          ...scene,
+                          imageUrl: generatedImage.data.at(0)?.url ?? `https://placeholder.co/1600X900?text=Error`,
+                        }
+                      : scene,
+                  ),
+                });
+              });
+          }
 
           state$.next({
             ...state$.value,
@@ -983,7 +1019,7 @@ ${(parsed.value as any).voiceTracks.map((track: any) => `${track.speaker}: ${tra
       tap((scene) => {
         // TODO avoid repeating
         scene?.reactions?.forEach(async (reaction) => {
-          await new Promise((resolve) => setTimeout(resolve, Math.random() * 5000));
+          await new Promise((resolve) => setTimeout(resolve, Math.random() * (scene.isCover ? 10000 : 5000)));
           this.danmaku!.emit({
             text: reaction.message,
             style: {
