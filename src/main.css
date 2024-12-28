@@ -61,7 +61,6 @@ h6 {
 
 :root {
   color-scheme: dark;
-  --caption-height: 80px;
 
   --header-z: 2;
   --danmaku-z: 1;
@@ -89,11 +88,6 @@ body {
   overflow: clip;
 }
 
-:root {
-  --debug-border-width: 1px;
-  /* --debug-border-width: 0px; */
-}
-
 * {
   outline-offset: calc(-1 * var(--debug-border-width));
 }
@@ -104,9 +98,34 @@ body {
   min-height: 100vh;
   overflow: clip;
   --ui-opacity: 0.25;
+  --debug-border-width: 0px;
+  --bottom-height: calc(100vh - 100vw * 9 / 16);
+  --video-opaticy: 1;
+  --trailer-opacity: 0;
+  --caption-width: calc(100vw - 100vw * 9 / 16);
+  --caption-padding: 2vw;
+  --canvas-color: #333;
 
-  &.presenting {
+  &[data-mode="debug"] {
+    --debug-border-width: 1px;
+  }
+  &[data-mode="presenting"] {
     --ui-opacity: 0;
+    --canvas-color: #222;
+  }
+
+  &[data-stage="trailer"] {
+    --headroom-height: calc((100vh - 100vw * 9 / 16) / 2);
+    --bottom-height: calc((100vh - 100vw * 9 / 16) / 2);
+    --video-opaticy: 0;
+    --trailer-opacity: 1;
+    --caption-width: calc(100vw - 4vw);
+    --caption-padding: 1vw 2vw;
+  }
+
+  .app-layout__headroom {
+    height: var(--headroom-height, 0);
+    transition: height 1s ease-in-out;
   }
 
   .app-layout__float {
@@ -114,43 +133,53 @@ body {
     bottom: 0;
     left: 0;
     height: calc(100vh - 100vw * 9 / 16);
-    padding: 2vw 0 2vw 2vw;
+    /* padding: 2vw 0 2vw 2vw; */
     outline: orange solid var(--debug-border-width);
 
     video {
       aspect-ratio: 1;
       height: 100%;
+      opacity: var(--video-opaticy);
+      transition: opacity 1s ease-in;
     }
   }
 
   .app-layout__upper {
-    background-color: #333;
+    background-color: var(--canvas-color);
     outline: purple solid var(--debug-border-width);
     width: 100%;
     aspect-ratio: 16/9;
     position: relative;
     overflow: hidden;
   }
-
   .app-layout__lower {
     background-color: black;
     outline: blue solid var(--debug-border-width);
-    height: calc(100vh - 100vw * 9 / 16);
+    height: var(--bottom-height);
     display: grid;
     justify-content: center;
+    transition: height 1s ease-in-out;
+  }
+
+  &[data-stage="trailer"] {
+    .app-layout__caption-container {
+      text-align: center;
+    }
   }
 
   .app-layout__caption-container {
     outline: white solid var(--debug-border-width);
     height: 100%;
-    width: calc(100vw - 100vw * 9 / 16);
+    width: var(--caption-width);
     overflow-y: scroll;
     font-size: 20px;
     display: flex;
     flex-direction: column;
     align-content: start;
     gap: 16px;
-    padding: 2vw;
+    padding: var(--caption-padding);
+
+    transition: width 1s ease-in-out;
 
     &::-webkit-scrollbar {
       width: 0px;
@@ -316,21 +345,18 @@ menu {
 }
 
 .trailer-layout {
-  position: relative;
-  height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  opacity: var(--trailer-opacity, 0);
+  transition: opacity 3s ease-in;
+  transition-delay: 2s;
+
+  @starting-style {
+    opacity: 0;
+  }
 
   img {
     width: 100%;
     aspect-ratio: 16 / 9;
     object-fit: cover;
-  }
-
-  p {
-    margin: auto;
-    width: min(40rem, calc(100% - 32px));
   }
 }
 

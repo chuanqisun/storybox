@@ -4,20 +4,20 @@ Tangible Stories
 
 ## TODOs
 
-- Picture in picture, showing projector view
-- Global Closed Caption
 - Character RAG for scene consistency
-- Character grid layout, use baseball card style
-- Fade in the scene after trailer
 - Refine render styles
 - Increase VAD trigger threshold
 - Add state machine visualization to system design
 - Text wrap: balance for title
 - Avatar name tag hide during silhouette
-- Adjust sketch aspect ratio for screen
 
 ## DONE
 
+- Character grid layout, use baseball card style
+- Adjust sketch aspect ratio for screen
+- Fade in the scene after trailer
+- Global Closed Caption
+- Picture in picture, showing projector view
 - Remove image hover title
 - Select microphone
 - Audience face animation

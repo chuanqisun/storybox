@@ -19,8 +19,11 @@ export function getCaption() {
     targetLine.scrollIntoView({ behavior: "smooth" });
   };
 
+  const clear = () => (captionElement.innerHTML = "");
+
   return {
     appendLine,
     appendPartial,
+    clear,
   };
 }

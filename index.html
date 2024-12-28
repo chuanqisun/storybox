@@ -8,13 +8,13 @@
   </head>
 
   <body>
-    <div class="app-layout">
+    <div class="app-layout" data-mode="debug" data-stage="customizing">
       <header class="debug-control">
         <menu>
+          <button data-action="toggle-mode">Mode: debug</button>
           <button data-action="connect">Connect</button>
           <button data-action="mute">Mute</button>
           <button data-action="enable-camera">Enable camera</button>
-          <button data-action="present">Present</button>
           <button data-action="debug-scenes">Scenes</button>
           <button data-action="debug-trailer">Trailer</button>
           <button data-action="debug-danmu">Danmu</button>
@@ -27,7 +27,8 @@
       <div class="app-layout__float">
         <video id="camera-video" class="float-cam" poster="https://placehold.co/400?text=STREAM"></video>
       </div>
-      <main class="app-layout__upper" data-stage="customizing">
+      <div class="app-layout__headroom"></div>
+      <main class="app-layout__upper">
         <div data-visible-stage="customizing" id="characters" class="character-grid"></div>
         <div data-visible-stage="editing" id="timeline"></div>
         <div data-visible-stage="editing" id="guests" class="guests-grid" hidden>

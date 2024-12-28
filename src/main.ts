@@ -20,6 +20,7 @@ const cameraButton = $<HTMLButtonElement>(`button[data-action="enable-camera"]`)
 const cameraNode = $<CameraNode>("camera-node")!;
 const azureSttNode = $<AzureSttNode>("azure-stt-node")!;
 const azureTtsNode = $<AzureTtsNode>("azure-tts-node")!;
+const appLayout = $<HTMLElement>(".app-layout")!;
 
 const storyEngine = new StoryEngine();
 
@@ -28,8 +29,13 @@ const globalClick$ = fromEvent(document, "click").pipe(
   filter((e) => e.action !== null),
   tap(async (e) => {
     switch (e.action) {
-      case "present": {
-        $<HTMLElement>(".app-layout")!.classList.add("presenting");
+      case "toggle-mode": {
+        const currentMode = appLayout.getAttribute("data-mode");
+        if (currentMode === "debug") {
+          appLayout.setAttribute("data-mode", "presenting");
+        } else if (currentMode === "presenting") {
+          appLayout.setAttribute("data-mode", "debug");
+        }
         break;
       }
       case "connect": {

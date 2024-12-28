@@ -109,6 +109,7 @@ const guests = $<HTMLElement>("#guests")!;
 const trailerImage = $<HTMLImageElement>("#trailer-image")!;
 const danmuContainer = $<HTMLElement>("#danmu")!;
 const endingTitle = $<HTMLElement>("#ending-title")!;
+const appLayout = $<HTMLElement>(".app-layout")!;
 
 const vision = getVision();
 const caption = getCaption();
@@ -140,7 +141,7 @@ export class StoryEngine {
         tap((state) => console.log("debug state", state)),
         distinctUntilKeyChanged("stage"),
         switchMap(({ stage }) => {
-          $<HTMLElement>(`[data-stage]`)?.setAttribute("data-stage", stage);
+          appLayout.setAttribute("data-stage", stage);
 
           switch (stage) {
             case "customizing": {
@@ -171,9 +172,11 @@ export class StoryEngine {
             }
 
             case "trailer": {
+              caption.clear();
               realtime.muteMicrophone();
-              realtime.muteSpeaker();
+              // realtime.muteSpeaker();
               this.generateTrailer();
+
               if (!this.danmaku) {
                 this.danmaku = new Danmaku({ container: danmuContainer, speed: 120 });
               }
@@ -775,7 +778,7 @@ After speaking, respond with one sentence summarizing the audience response.
             parameters: z.object({}),
             run: () => {
               this.changeStage("trailer");
-              return "Done. Let user seat back and enjoy the story.";
+              return "Done. Concisely let user seat back and enjoy the trailer. Don't spoil it";
             },
           })
           .commitDraftTools() // clear previous tools
