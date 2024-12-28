@@ -14,6 +14,7 @@ Tangible Stories
 - Add state machine visualization to system design
 - Text wrap: balance for title
 - Avatar name tag hide during silhouette
+- Adjust sketch aspect ratio for screen
 
 ## DONE
 

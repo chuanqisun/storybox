@@ -21,11 +21,13 @@
           <div id="caption-status"></div>
         </menu>
         <div class="monitor-layout">
-          <video id="debug-video" poster="https://placehold.co/400?text=STREAM"></video>
           <img id="debug-capture" src="https://placehold.co/400?text=CAPTURE" />
         </div>
       </header>
-      <main data-stage="customizing">
+      <div class="app-layout__float">
+        <video id="camera-video" class="float-cam" poster="https://placehold.co/400?text=STREAM"></video>
+      </div>
+      <main class="app-layout__upper" data-stage="customizing">
         <div data-visible-stage="customizing" id="characters" class="character-grid"></div>
         <div data-visible-stage="editing" id="timeline"></div>
         <div data-visible-stage="editing" id="guests" class="guests-grid" hidden>
@@ -35,11 +37,13 @@
         </div>
         <div data-visible-stage="trailer" id="trailer" class="trailer-layout">
           <img id="trailer-image" src="/trailer-cover.png" />
-          <div id="closed-caption"></div>
         </div>
         <div id="ending-title" class="movie-title" hidden></div>
+        <div id="danmu"></div>
       </main>
-      <div id="danmu"></div>
+      <div class="app-layout__lower">
+        <div id="closed-caption" class="app-layout__caption-container"></div>
+      </div>
     </div>
     <ai-bar auto-hide>
       <!-- <stt-node></stt-node> -->
@@ -53,7 +57,7 @@
       <drag-handle></drag-handle>
       <hide-bar></hide-bar>
       <microphone-node></microphone-node>
-      <camera-node video="debug-video"></camera-node>
+      <camera-node video="camera-video"></camera-node>
       <azure-connection></azure-connection>
       <!-- <walkie-talkie-button></walkie-talkie-button> -->
     </ai-bar>

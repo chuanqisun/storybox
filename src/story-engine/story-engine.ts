@@ -452,9 +452,9 @@ Respond in valid JSON, with the following type interface:
         (state) =>
           html`${state.scenes.map(
             (scene, i) => html`
-              <div class="scene">
-                <img src="${scene.imageUrl ?? scene.placeholderImgUrl}" />
+              <div class="media-card text-first" .hidden=${i !== state.scenes.length - 1}>
                 <p>${scene.narration}</p>
+                <img src="${scene.imageUrl ?? scene.placeholderImgUrl}" />
               </div>
             `,
           )}`,
