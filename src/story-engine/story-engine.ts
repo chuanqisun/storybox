@@ -893,6 +893,8 @@ ${state$.value.scenes.map((scene, i) => `Chapter ${i + 1}: ${scene.narration}`).
         tap((parsed) => {
           const sceneIndex = parsed.key as number;
           const parsedScene = parsed.value as any as TrailerScene;
+          const isCover = parsedScene.isCover;
+          const isEnding = !parsedScene.sceneDescription.length;
 
           // Generate reactions
           aoai.chat.completions
@@ -900,7 +902,7 @@ ${state$.value.scenes.map((scene, i) => `Chapter ${i + 1}: ${scene.narration}`).
               messages: [
                 system`
 React to a movie trailer scene with "Bullet Screen" (弹幕).
-Simulate ${parsedScene.isCover ? "20" : "5 - 10"} comments from various online viewers. Use online forum idioms. Use exaggerated punctuation and Kaomoji sparingly. No Emoji. English only. 
+Simulate ${parsedScene.isCover || isEnding ? "20" : "5 - 10"} comments from various online viewers. Use online forum idioms. Use exaggerated punctuation and Kaomoji sparingly. No Emoji. English only. 
 
 Respond in this JSON format 
 
@@ -942,9 +944,6 @@ ${(parsed.value as any).voiceTracks.map((track: any) => `${track.speaker}: ${tra
                 ),
               });
             });
-
-          const isCover = parsedScene.isCover;
-          const isEnding = !parsedScene.sceneDescription.length;
 
           // Generate images
           if (isCover) {
@@ -1080,9 +1079,11 @@ ${(parsed.value as any).voiceTracks.map((track: any) => `${track.speaker}: ${tra
   useTrailerDanmaku() {
     return state$.pipe(
       map((state) => state.trailer.find((e) => e.isActive)),
-      distinctUntilChanged((a, b) => a?.sceneDescription === b?.sceneDescription),
+      filter((scene) => !!scene?.reactions?.length),
+      distinct((scene) => scene?.sceneDescription),
       tap((scene) => {
         // TODO avoid repeating
+        console.log("[danmaku] play", scene?.reactions);
         scene?.reactions?.forEach(async (reaction) => {
           await new Promise((resolve) => setTimeout(resolve, Math.random() * (scene.isCover ? 10000 : 5000)));
           this.danmaku!.emit({
@@ -1175,7 +1176,6 @@ ${voiceOptions.map((option) => `${option.name}: ${option.description}`).join("\n
       switchMap((scene) => {
         if (!scene) return of([]);
 
-        // TODO require voice actor match, for now use standard narrator voice
         return from(scene.voiceTracks).pipe(
           concatMap(async (track) => {
             const voiceMap = await voiceMapPromise;
