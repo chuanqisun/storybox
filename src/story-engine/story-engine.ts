@@ -599,7 +599,9 @@ ${this.history.join("\n")}
 User is currently showing on screen: ${latestScene.caption}
 User is pointing the microphone at ${currentGuest?.getAttribute("data-name")}, but other guests may continue the discussion. 
 
-Now use the speak_as tool to simulate the audience response, including **exaggerated** facial expression. Do NOT add additional response after using the tool.
+Now use the speak_as tool to simulate the audience response, including **exaggerated** facial expression.
+After speaking, respond with one sentence summarizing the audience response.
+
               `,
               user`${recognizedText}`,
             ],
@@ -661,7 +663,9 @@ Now use the speak_as tool to simulate the audience response, including **exagger
         // store user speech after the response is generated
         this.history.push(`User: ${recognizedText}`);
 
-        await response.finalContent();
+        const summary = await response.finalContent();
+        console.log(`[interview] summary: ${summary}`);
+        realtime.appendUserMessage(`I just had a round of discussion with the guests. Here is the summary: ${summary}`);
       }),
     );
 

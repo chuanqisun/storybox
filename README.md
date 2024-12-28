@@ -4,7 +4,6 @@ Tangible Stories
 
 ## TODOs
 
-- Handoff interview transcript to main thread
 - Picture in picture, showing projector view
 - Global Closed Caption
 - Character RAG for scene consistency
@@ -14,9 +13,11 @@ Tangible Stories
 - Increase VAD trigger threshold
 - Add state machine visualization to system design
 - Text wrap: balance for title
+- Avatar name tag hide during silhouette
 
 ## DONE
 
 - Remove image hover title
 - Select microphone
 - Audience face animation
+- Handoff interview transcript to main thread
