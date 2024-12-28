@@ -24,6 +24,12 @@ export function defineOpenAIRealtimeNode() {
   return customElements.define("openai-realtime-node", OpenAIRealtimeNode);
 }
 
+export const RealtimeEvents = {
+  userTranscriptCompleted: "conversation.item.input_audio_transcription.completed",
+  agentTranscriptDelta: "response.audio_transcript.delta",
+  agentTranscriptDone: "response.audio_transcript.done",
+};
+
 const microphoneNode = $<MicrophoneNode>("microphone-node");
 
 /**
@@ -49,6 +55,7 @@ export class OpenAIRealtimeNode extends HTMLElement {
     // handle function calling
     dc.addEventListener("message", async (e) => {
       const data = JSON.parse(e.data);
+      // console.log(data);
 
       if (data.type === "response.done") {
         const responseOutput = data.response?.output?.at(0);
@@ -72,6 +79,20 @@ export class OpenAIRealtimeNode extends HTMLElement {
             }
           }
         }
+      }
+
+      if (data.type === RealtimeEvents.userTranscriptCompleted) {
+        this.dispatchEvent(
+          new CustomEvent<string>(RealtimeEvents.userTranscriptCompleted, { detail: data.transcript }),
+        );
+      }
+
+      if (data.type === RealtimeEvents.agentTranscriptDelta) {
+        this.dispatchEvent(new CustomEvent<string>(RealtimeEvents.agentTranscriptDelta, { detail: data.delta }));
+      }
+
+      if (data.type === RealtimeEvents.agentTranscriptDone) {
+        this.dispatchEvent(new CustomEvent<string>(RealtimeEvents.agentTranscriptDone, { detail: data.transcript }));
       }
     });
 

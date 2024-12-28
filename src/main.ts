@@ -35,6 +35,7 @@ const globalClick$ = fromEvent(document, "click").pipe(
       case "connect": {
         connectButton.textContent = "Connecting...";
         await realtime.start();
+        realtime.enableTranscription();
         storyEngine.start();
         azureSttNode.startMicrophone();
         azureTtsNode.startSpeaker();

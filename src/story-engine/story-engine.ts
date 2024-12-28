@@ -3,6 +3,7 @@ import { html, render } from "lit";
 import {
   BehaviorSubject,
   concatMap,
+  delay,
   distinct,
   distinctUntilChanged,
   distinctUntilKeyChanged,
@@ -32,13 +33,14 @@ import { AzureSttNode } from "../lib/ai-bar/lib/elements/azure-stt-node";
 import { AzureTtsNode, type StateChangeEventDetail } from "../lib/ai-bar/lib/elements/azure-tts-node";
 import type { ElevenLabsTtsNode } from "../lib/ai-bar/lib/elements/eleven-labs-tts-node";
 import { LlmNode } from "../lib/ai-bar/lib/elements/llm-node";
-import type { OpenAIRealtimeNode } from "../lib/ai-bar/lib/elements/openai-realtime-node";
+import { RealtimeEvents, type OpenAIRealtimeNode } from "../lib/ai-bar/lib/elements/openai-realtime-node";
 import type { TogetherAINode } from "../lib/ai-bar/lib/elements/together-ai-node";
 import type { AIBarEventDetail } from "../lib/ai-bar/lib/events";
 import { system, user } from "../lib/ai-bar/lib/message";
-import { $, $all, $new } from "../lib/dom";
+import { $, $all, getDetail } from "../lib/dom";
 import { parseJsonStream } from "../lib/json-stream";
 import { tryParse } from "../lib/parse";
+import { getCaption } from "./caption";
 import { getVision } from "./vision";
 import { characterFallbackVoice, narratorVoice, voiceOptions, type VoiceOption } from "./voice-map";
 
@@ -105,11 +107,11 @@ const captionStatus = $<HTMLElement>("#caption-status")!;
 const charactersGrid = $<HTMLElement>("#characters")!;
 const guests = $<HTMLElement>("#guests")!;
 const trailerImage = $<HTMLImageElement>("#trailer-image")!;
-const closedCaption = $<HTMLElement>("#closed-caption")!;
 const danmuContainer = $<HTMLElement>("#danmu")!;
 const endingTitle = $<HTMLElement>("#ending-title")!;
 
 const vision = getVision();
+const caption = getCaption();
 
 const state$ = new BehaviorSubject<StoryState>({
   stage: "new",
@@ -132,7 +134,7 @@ export class StoryEngine {
   private danmaku: Danmaku | null = null;
 
   start() {
-    const sharedSub = merge(this.useVisionLoadCounter()).subscribe();
+    const sharedSub = merge(this.useVisionLoadCounter(), this.useCaption()).subscribe();
     const stateSub = state$
       .pipe(
         tap((state) => console.log("debug state", state)),
@@ -226,6 +228,21 @@ export class StoryEngine {
         realtime.appendUserMessage(`Now I'm showing you: ${visionUpdate.description}`);
       }),
     );
+  }
+
+  useCaption() {
+    const agentTranscript$ = fromEvent(realtime, RealtimeEvents.agentTranscriptDelta).pipe(
+      map(getDetail<string>),
+      delay(1500),
+      tap((transcript) => caption.appendPartial(`Narrator`, transcript)),
+    );
+    const userTranscript$ = fromEvent(realtime, RealtimeEvents.userTranscriptCompleted).pipe(
+      map(getDetail<string>),
+      filter((transcript) => transcript.trim().length > 0),
+      tap((transcript) => caption.appendPartial(`User`, transcript + " ")),
+    );
+
+    return merge(agentTranscript$, userTranscript$);
   }
 
   // STAGE 1 - CUSTOMIZING
@@ -452,7 +469,7 @@ Respond in valid JSON, with the following type interface:
         (state) =>
           html`${state.scenes.map(
             (scene, i) => html`
-              <div class="media-card text-first" .hidden=${i !== state.scenes.length - 1}>
+              <div class="media-card text-first text-left" .hidden=${i !== state.scenes.length - 1}>
                 <p>${scene.narration}</p>
                 <img src="${scene.imageUrl ?? scene.placeholderImgUrl}" />
               </div>
@@ -616,10 +633,13 @@ After speaking, respond with one sentence summarizing the audience response.
                         voice: $<AvatarElement>(`avatar-element[data-name="${props.name}"]`)?.getAttribute(
                           "data-voice-id",
                         )!,
-                        onStart: () =>
+                        onStart: () => {
                           $<AvatarElement>(`avatar-element[data-name="${props.name}"]`)?.setExpression(
                             props.expression,
-                          ),
+                          );
+
+                          caption.appendLine(`${props.name}: ${props.utterance}`);
+                        },
                       })
                       .then(() => {
                         $<AvatarElement>(`avatar-element[data-name="${props.name}"]`)?.setExpression("smile");
@@ -1156,9 +1176,7 @@ ${voiceOptions.map((option) => `${option.name}: ${option.description}`).join("\n
         return from(scene.voiceTracks).pipe(
           concatMap(async (track) => {
             const voiceMap = await voiceMapPromise;
-            const captionLine = $new("p", {}, [`${track.speaker}: ${track.utterance ?? ""}`]);
-            closedCaption.appendChild(captionLine);
-            captionLine.scrollIntoView({ behavior: "smooth" });
+            caption.appendLine(`${track.speaker}: ${track.utterance ?? ""}`);
             await eleventLabsTtsNode.queue(track.utterance, {
               voice:
                 track.speaker === "Voice-over"
