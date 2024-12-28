@@ -81,6 +81,29 @@ const globalClick$ = fromEvent(document, "click").pipe(
         storyEngine.debugTrailer();
         break;
       }
+      case "debug-danmu": {
+        const Danmaku = (await import("danmaku")).default;
+        const danmaku = new Danmaku({
+          container: $("#danmu") as HTMLElement,
+        });
+
+        const item = {
+          text: "hello!!!",
+          style: {
+            fontSize: "2vw",
+            color: "white",
+          },
+        };
+
+        danmaku.emit(item);
+        danmaku.emit(item);
+        danmaku.emit(item);
+        danmaku.emit(item);
+        danmaku.emit(item);
+        danmaku.emit(item);
+
+        break;
+      }
     }
   }),
 );

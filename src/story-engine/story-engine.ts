@@ -1,3 +1,4 @@
+import Danmaku from "danmaku";
 import { html, render } from "lit";
 import {
   BehaviorSubject,
@@ -70,7 +71,7 @@ export interface TrailerScene {
   sceneDescription: string;
   imageUrl?: string;
   voiceTracks: VoiceTrack[];
-  reactions?: string[];
+  reactions?: { username: string; message: string }[];
   played?: boolean;
 }
 
@@ -96,6 +97,7 @@ const charactersGrid = $<HTMLElement>("#characters")!;
 const guests = $<HTMLElement>("#guests")!;
 const trailerImage = $<HTMLImageElement>("#trailer-image")!;
 const closedCaption = $<HTMLElement>("#closed-caption")!;
+const danmuContainer = $<HTMLElement>("#danmu")!;
 
 const vision = getVision();
 
@@ -119,8 +121,10 @@ const styles = [claymationStyle, needleFeltedScene];
 export class StoryEngine {
   private subs: Subscription[] = [];
   private history = [] as string[];
+  private danmaku: Danmaku | null = null;
 
   start() {
+    this.danmaku = new Danmaku({ container: danmuContainer });
     const sharedSub = merge(this.useVisionLoadCounter()).subscribe();
     const stateSub = state$
       .pipe(
@@ -166,6 +170,7 @@ export class StoryEngine {
                 this.useTrailerPlay(),
                 this.useTrailerVoiceover(),
                 this.useTrailerAutoControl(),
+                this.useTrailerDanmaku(),
               );
             }
           }
@@ -183,6 +188,8 @@ export class StoryEngine {
   stop() {
     this.subs.forEach((sub) => sub.unsubscribe());
     this.subs = [];
+    this.danmaku?.destroy();
+    this.danmaku = null;
   }
 
   useVisionLoadCounter() {
@@ -964,6 +971,27 @@ ${(parsed.value as any).voiceTracks.map((track: any) => `${track.speaker}: ${tra
 
         trailerImage.src =
           scene.imageUrl ?? `https://placehold.co/400?text=${encodeURIComponent(scene.sceneDescription)}`;
+      }),
+    );
+  }
+
+  useTrailerDanmaku() {
+    return state$.pipe(
+      map((state) => state.trailer.find((e) => e.isActive)),
+      distinctUntilChanged((a, b) => a?.sceneDescription === b?.sceneDescription),
+      tap((scene) => {
+        // TODO avoid repeating
+        scene?.reactions?.forEach(async (reaction) => {
+          await new Promise((resolve) => setTimeout(resolve, Math.random() * 5000));
+          this.danmaku!.emit({
+            text: reaction.message,
+            style: {
+              fontSize: "1.5vw",
+              color: ["white", "yellow", "red", "green", "blue", "purple"][Math.floor(Math.random() * 6)],
+              textShadow: "-1px -1px #000, -1px 1px #000, 1px -1px #000, 1px 1px #000",
+            },
+          });
+        });
       }),
     );
   }
