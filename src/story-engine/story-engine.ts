@@ -127,7 +127,8 @@ const state$ = new BehaviorSubject<StoryState>({
 
 const characterImagePrompt$ = new Subject<{ characterName: string; characterDescription: string }>();
 
-const claymationStyle = `A claymation-style image with a warm, autumnal color palette. The lighting is soft and diffused, creating a gentle, almost nostalgic mood. The textures are highly tactile, emphasizing the handmade quality of the materials.  The overall aesthetic is whimsical and slightly surreal, with a focus on creating a sense of depth and detail despite the simplistic forms. The rendering style is painterly, with visible brushstrokes or sculpting marks adding to the handcrafted feel.  Colors are muted and slightly desaturated, with a predominance of oranges, browns, and greens.  The background is slightly blurred, drawing attention to the main focus.`;
+const renderStyle = `A claymation-style image with a warm, autumnal color palette. The lighting is soft and diffused, creating a gentle, almost nostalgic mood. The textures are highly tactile, emphasizing the handmade quality of the materials.  The overall aesthetic is whimsical and slightly surreal, with a focus on creating a sense of depth and detail despite the simplistic forms. The rendering style is painterly, with visible brushstrokes or sculpting marks adding to the handcrafted feel.  Colors are muted and slightly desaturated, with a predominance of oranges, browns, and greens.  The background is slightly blurred, drawing attention to the main focus.`;
+const renderStyle2 = `Rendered in a style reminiscent of Japanese animation, featuring a palette of soft, muted colors with a warm, slightly desaturated tone.  The lighting is natural and diffused, creating a soft, even illumination across the scene with a strong light source seemingly from above, casting subtle shadows.  The lines are clean and slightly rounded, giving a smooth, polished look. The overall aesthetic is peaceful and nostalgic, with a slightly hazy or dreamlike quality to the rendering.  The style suggests a focus on atmosphere and mood rather than sharp detail.`;
 
 export class StoryEngine {
   private subs: Subscription[] = [];
@@ -252,7 +253,7 @@ export class StoryEngine {
   useCharactersDisplay() {
     return characterImagePrompt$.pipe(
       switchMap(async (prompt) => {
-        togetherAINode.generateImageDataURL(prompt.characterDescription + ` ${claymationStyle}`).then((dataUrl) => {
+        togetherAINode.generateImageDataURL(prompt.characterDescription + ` ${renderStyle}`).then((dataUrl) => {
           state$.next({
             ...state$.value,
             characters: state$.value.characters.map((e) =>
@@ -712,7 +713,7 @@ After speaking, respond with one sentence summarizing the audience response.
                 ),
             }),
             run: async (args) => {
-              const dataUrl = await togetherAINode.generateImageDataURL(`${args.sceneDescription} ${claymationStyle}`);
+              const dataUrl = await togetherAINode.generateImageDataURL(`${args.sceneDescription} ${renderStyle}`);
 
               state$.next({
                 ...state$.value,
@@ -750,7 +751,7 @@ After speaking, respond with one sentence summarizing the audience response.
             }),
             run: async (args) => {
               const dataUrl = await togetherAINode.generateImageDataURL(
-                `${args.update.sceneDescription} ${claymationStyle}`,
+                `${args.update.sceneDescription} ${renderStyle}`,
               );
 
               state$.next({
@@ -953,7 +954,7 @@ ${(parsed.value as any).voiceTracks.map((track: any) => `${track.speaker}: ${tra
           } else {
             azureDalleNode
               .generateImage({
-                prompt: parsedScene.sceneDescription + " " + claymationStyle, // TODO adjust style filter
+                prompt: parsedScene.sceneDescription + " " + renderStyle, // TODO adjust style filter
                 style: "vivid",
                 size: "1792x1024",
               })
