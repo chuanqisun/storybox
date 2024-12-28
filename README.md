@@ -5,6 +5,7 @@ Tangible Stories
 ## TODOs
 
 - Audience face animation
+- Handoff interview transcript to main thread
 - Picture in picture, showing projector view
 - Global Closed Caption
 - Character RAG for scene consistency

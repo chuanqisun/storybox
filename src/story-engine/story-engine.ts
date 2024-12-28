@@ -211,6 +211,7 @@ export class StoryEngine {
     );
   }
 
+  // SHARED
   useStableVision() {
     return vision.stableVision$.pipe(
       tap((visionUpdate) => {
@@ -227,6 +228,7 @@ export class StoryEngine {
     );
   }
 
+  // STAGE 1 - CUSTOMIZING
   useCharactersDisplay() {
     return characterImagePrompt$.pipe(
       switchMap(async (prompt) => {
@@ -443,6 +445,7 @@ Respond in valid JSON, with the following type interface:
     return parsedStory;
   }
 
+  // STAGE 2 - EDITING
   useSceneDisplay() {
     return state$.pipe(
       map(
@@ -587,14 +590,14 @@ ${guestAvatars.map((avatar, i) => `Guest ${i + 1}: ${avatar.getAttribute("data-n
           {
             messages: [
               system`
-Simulate an audience interview during a storytelling event. The user is interviewing the following audience:
+Simulate an audience interview during a visual storytelling workshop. The user is interviewing the following audience:
 ${state$.value.guests.map((guest) => `${guest.name} (${guest.background})`).join("\n")}
 
-Transcript of the discussion so far:
+Previous transcript:
 ${this.history.join("\n")}
 
 User is currently showing on screen: ${latestScene.caption}
-The user is pointing the microphone at ${currentGuest?.getAttribute("data-name")}, but other guests may continue the discussion. 
+User is pointing the microphone at ${currentGuest?.getAttribute("data-name")}, but other guests may continue the discussion. 
 
 Now use the speak_as tool to simulate the audience response. Do NOT add additional response after using the tool.
               `,
@@ -605,7 +608,7 @@ Now use the speak_as tool to simulate the audience response. Do NOT add addition
               {
                 type: "function",
                 function: {
-                  function: function speak_as(props: { name: string; utterance: string }) {
+                  function: function speak_as(props: { name: string; utterance: string; expression: string }) {
                     azureTtsNode
                       .queue(props.utterance, {
                         voice: $<AvatarElement>(`avatar-element[data-name="${props.name}"]`)?.getAttribute(
@@ -624,7 +627,7 @@ Now use the speak_as tool to simulate the audience response. Do NOT add addition
 
                   parameters: {
                     type: "object",
-                    required: ["name", "utterance"],
+                    required: ["name", "utterance", "expression"],
                     properties: {
                       name: {
                         type: "string",
@@ -634,6 +637,10 @@ Now use the speak_as tool to simulate the audience response. Do NOT add addition
                       utterance: {
                         type: "string",
                         description: "One sentence brief utterance",
+                      },
+                      expression: {
+                        enum: AvatarElement.expressionOptions,
+                        description: "Facial expression during utterance",
                       },
                     },
                   },
@@ -954,6 +961,7 @@ ${(parsed.value as any).voiceTracks.map((track: any) => `${track.speaker}: ${tra
       .subscribe();
   }
 
+  // STAGE 3 - TRAILER
   useTrailerControl() {
     return fromEvent<KeyboardEvent>(document, "keydown").pipe(
       tap((e) => {

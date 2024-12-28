@@ -1,7 +1,7 @@
 import { micah } from "@dicebear/collection";
 import { createAvatar } from "@dicebear/core";
-
 import { $all } from "../lib/dom";
+
 import "./avatar-element.css";
 
 const people = [
@@ -22,6 +22,7 @@ const people = [
 ];
 
 const pickedPersons = new Set<any>();
+
 export function getRandomPerson() {
   const pool = people.filter((person) => !pickedPersons.has(person));
   const remainingMales = pool.filter((person) => person.gender === "Male");
@@ -47,6 +48,8 @@ export class AvatarElement extends HTMLElement {
       }
     });
   }
+
+  static expressionOptions = ["surprised", "laughing", "nervous", "smile", "sad", "pucker", "frown", "smirk"];
 
   static observedAttributes = ["data-name", "data-mouth"];
 
