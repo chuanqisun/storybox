@@ -262,6 +262,7 @@ menu {
   text-align: center;
   font-weight: bold;
   text-transform: uppercase;
+  padding: 0.5vw;
 
   inset: 0;
   margin: auto;

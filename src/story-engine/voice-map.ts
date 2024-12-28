@@ -14,7 +14,7 @@ export const voiceOptions: VoiceOption[] = [
     description: "The Villain! Wickedly eloquent. Calculating. Cruel and calm.",
   },
   {
-    id: "RAgTrai7USMQFTyr6Qdg",
+    id: "NOUqdwPiNzHaOPOi4vC8",
     name: "Ryan",
     description: "A deep timbre older voice.",
   },
@@ -31,19 +31,35 @@ export const voiceOptions: VoiceOption[] = [
       "Middle-aged American male. Voice is rich, smooth, & rugged. Each syllable lingers on the palate, leaving a tantalizing trail of sensation in its wake. Deep and sonorous, this Voice of the Mountain resonates... sending vibrations that stir the senses and beckon you closer, promising secrets and fulfilling them.",
   },
   {
-    id: "ePIpJ5BMf86sxpHOIFxM",
+    id: "wkMCMaFpHUn8RtbAiJBS",
     name: "Sarah",
     description: "Cheeky young American female voice.",
   },
   {
-    id: "f4bDqSqiUIAg4rTD5laC",
+    id: "ZVl9Fp61ffjhqbLsIHdG",
     name: "Sally",
     description: "A friendly and excited American female voice.",
   },
   {
-    id: "T0pkYhIZ7UMOc26gqqeX",
-    name: "Milo",
+    id: "INHnGXKnJqauobZLfeOV",
+    name: "Benny",
+    description: "Young American male, lots of energy and excitement.",
+  },
+  {
+    id: "vfaqCOvlrKi4Zp7C2IAm",
+    name: "Demon",
+    description: "A Deep Demon Monster. Perfect for Ghoul, Monster, Fantasy, Dark, Horror.",
+  },
+  {
+    id: "KTPVrSVAEUSJRClDzBw7",
+    name: "Cowboy",
     description:
-      "Relaxed tone perfect for a comfortable conversation with friends. His slightly drowsy rasp gives him a down-to-earth quality, making him relatable and easygoing.",
+      "An aged American male voice, rich with the gravel of countless tales and tinged with a Southern drawl, perfect for stories needing a touch of rugged charm and timeless wisdom.",
+  },
+  {
+    id: "chcMmmtY1cmQh2ye1oXi",
+    name: "Timmy",
+    description:
+      "A young to middle aged medieval style character. High energy, Higher Pitch. Perfect for Games & Animation. Peasant, Unit, Grunt, Villager, Town Crier, Farmer.",
   },
 ];

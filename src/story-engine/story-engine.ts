@@ -903,31 +903,14 @@ ${(parsed.value as any).voiceTracks.map((track: any) => `${track.speaker}: ${tra
               });
             });
 
+          const isCover = parsedScene.isCover;
+          const isEnding = !parsedScene.sceneDescription.length;
+
           // Generate images
-          if (parsedScene.isCover) {
-            state$.next({
-              ...state$.value,
-              trailer: state$.value.trailer.map((scene, i) =>
-                i === sceneIndex
-                  ? {
-                      ...scene,
-                      imageUrl: `${import.meta.env.BASE_URL}/trailer-cover.png`,
-                    }
-                  : scene,
-              ),
-            });
-          } else if (!parsedScene.sceneDescription.length) {
-            state$.next({
-              ...state$.value,
-              trailer: state$.value.trailer.map((scene, i) =>
-                i === sceneIndex
-                  ? {
-                      ...scene,
-                      imageUrl: `https://placehold.co/1600X900/black/black`,
-                    }
-                  : scene,
-              ),
-            });
+          if (isCover) {
+            // leave out cover image
+          } else if (isEnding) {
+            // leave out ending image
           } else {
             azureDalleNode
               .generateImage({
@@ -952,7 +935,18 @@ ${(parsed.value as any).voiceTracks.map((track: any) => `${track.speaker}: ${tra
 
           state$.next({
             ...state$.value,
-            trailer: [...state$.value.trailer, { ...parsedScene, isEnding: !parsedScene.sceneDescription.length }],
+            trailer: [
+              ...state$.value.trailer,
+              {
+                ...parsedScene,
+                isEnding,
+                imageUrl: isCover
+                  ? `${import.meta.env.BASE_URL}/trailer-cover.png`
+                  : isEnding
+                    ? `https://placehold.co/1600X900/black/black`
+                    : undefined,
+              },
+            ],
           });
         }),
       )
@@ -1154,7 +1148,7 @@ ${voiceOptions.map((option) => `${option.name}: ${option.description}`).join("\n
                   : (voiceMap.get(track.speaker)?.id ?? characterFallbackVoice),
             });
 
-            await new Promise((resolve) => setTimeout(resolve, 1000)); // 1 second between scenes
+            await new Promise((resolve) => setTimeout(resolve, 500)); // pause between scenes
           }),
           finalize(() => {
             // mark as played
