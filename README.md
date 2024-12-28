@@ -12,3 +12,4 @@ Tangible Stories
 - increase VAD trigger threshold
 - Remove image hover title
 - Add state machine visualization to system design
+- Text wrap: balance for title
