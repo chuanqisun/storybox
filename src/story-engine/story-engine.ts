@@ -736,8 +736,8 @@ Now use the speak_as tool to simulate the audience response. Do NOT add addition
             },
           })
           .addDraftTool({
-            name: "start_trailer",
-            description: "Show the entire story as a movie",
+            name: "convert_to_trailer",
+            description: "Turn the story into a movie trailer",
             parameters: z.object({}),
             run: () => {
               this.changeStage("trailer");
@@ -775,7 +775,7 @@ Now work with the user to develop the story one scene at a time.
   - After using the tool, you MUST respond with the narration
 - Use edit_current_scene to edit the current scene.
   - After using the tool, concisely tell user what you did.
-- When user has finished developing all the scenes, with user's permission, you can use start_trailer tool to show the story as a movie trailer. Encourage user to wrap up within five scenes
+- When user has finished developing all the scenes, you can use convert_to_trailer tool to turn the story into a movie trailer. Encourage user to wrap up after three scenes.
           `.trim(),
           );
       }),
