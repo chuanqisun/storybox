@@ -45,7 +45,7 @@ export class CameraNode extends HTMLElement {
 }
 </style>
 <button>📹</button>
-<dialog style="width: min(40rem, calc(100vw - 32px))">
+<dialog style="width: min(60rem, calc(100vw - 32px))">
   <form  method="dialog">
     <label for="webcam">Select Webcam</label>
     <select name="webcam" id="webcamSelect">

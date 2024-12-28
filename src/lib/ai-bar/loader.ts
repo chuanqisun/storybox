@@ -9,6 +9,7 @@ import { defineElevenLabsTtsNode } from "./lib/elements/eleven-labs-tts-node";
 import { defineGestureControl } from "./lib/elements/gesture-control";
 import { defineHideBar } from "./lib/elements/hide-bar";
 import { defineLlmNode } from "./lib/elements/llm-node";
+import { defineMicrophoneNode } from "./lib/elements/microphone-node";
 import { defineOpenAIRealtimeNode } from "./lib/elements/openai-realtime-node";
 import { defineScreenCapture } from "./lib/elements/screen-capture";
 import { defineSttNode } from "./lib/elements/stt-node";
@@ -33,6 +34,7 @@ export function loadAIBar() {
   defineGestureControl();
   defineHideBar();
   defineLlmNode();
+  defineMicrophoneNode();
   defineOpenAIRealtimeNode();
   defineScreenCapture();
   defineSttNode();

@@ -205,10 +205,8 @@ export class OpenAIRealtimeNode extends HTMLElement {
     // Get an ephemeral key from your server - see server code below
     const EPHEMERAL_KEY = await this.#getEphemeralKey();
 
-    // Create a peer connection
     const pc = new RTCPeerConnection();
 
-    // Set up to play remote audio from the model
     const audioEl = document.createElement("audio");
     audioEl.autoplay = true;
     pc.ontrack = (e) => (audioEl.srcObject = e.streams[0]);
@@ -219,10 +217,8 @@ export class OpenAIRealtimeNode extends HTMLElement {
     });
     pc.addTrack(ms.getTracks()[0]);
 
-    // Set up data channel for sending and receiving events
     const dc = pc.createDataChannel("oai-events");
 
-    // Start the session using the Session Description Protocol (SDP)
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
 
