@@ -1,7 +1,9 @@
 import { zodResponseFormat } from "openai/helpers/zod";
 import type { AutoParseableResponseFormat } from "openai/lib/parser.mjs";
 import { z } from "zod";
+import { $ } from "../../../dom";
 import type { AIBar } from "../ai-bar";
+import type { MicrophoneNode } from "./microphone-node";
 
 export type Tool<T extends OpenAICompatibleSchema> = {
   name: string;
@@ -21,6 +23,8 @@ export interface ParsedTool extends Tool<any> {
 export function defineOpenAIRealtimeNode() {
   return customElements.define("openai-realtime-node", OpenAIRealtimeNode);
 }
+
+const microphoneNode = $<MicrophoneNode>("microphone-node");
 
 /**
  * OpenAI 4o Realtime Client
@@ -213,7 +217,11 @@ export class OpenAIRealtimeNode extends HTMLElement {
 
     // Add local audio track for microphone input in the browser
     const ms = await navigator.mediaDevices.getUserMedia({
-      audio: true,
+      audio: {
+        deviceId: {
+          ideal: microphoneNode?.selectedDeviceId,
+        },
+      },
     });
     pc.addTrack(ms.getTracks()[0]);
 

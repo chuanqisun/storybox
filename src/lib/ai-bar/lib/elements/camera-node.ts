@@ -129,10 +129,10 @@ export class CameraNode extends HTMLElement {
 
   async start(): Promise<void> {
     try {
-      const selectedId = localStorage.getItem("selectedWebcamDeviceId");
+      const selectedId = localStorage.getItem("selectedWebcamDeviceId") ?? "";
       const constraints: MediaStreamConstraints = {
         video: {
-          deviceId: selectedId ? { exact: selectedId } : undefined,
+          deviceId: { ideal: selectedId },
           width: { min: 200, ideal: 400 },
           height: { min: 200, ideal: 400 },
         },
@@ -235,6 +235,9 @@ export class CameraNode extends HTMLElement {
           // Save the selected device ID in local storage
           localStorage.setItem("selectedWebcamDeviceId", selectedDeviceId);
           console.log("Webcam device ID saved:", selectedDeviceId);
+
+          this.stop();
+          this.start();
         }
       }
     };

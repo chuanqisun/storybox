@@ -64,6 +64,10 @@ export class MicrophoneNode extends HTMLElement {
     });
   }
 
+  get selectedDeviceId(): string | undefined {
+    return localStorage.getItem("selectedMicrophoneDeviceId") ?? "";
+  }
+
   async getDeviceList(): Promise<MediaDeviceInfo[]> {
     try {
       const devices = await navigator.mediaDevices.enumerateDevices();
