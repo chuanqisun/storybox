@@ -4,7 +4,6 @@ Tangible Stories
 
 ## TODOs
 
-- Audience face animation
 - Handoff interview transcript to main thread
 - Picture in picture, showing projector view
 - Global Closed Caption
@@ -20,3 +19,4 @@ Tangible Stories
 
 - Remove image hover title
 - Select microphone
+- Audience face animation

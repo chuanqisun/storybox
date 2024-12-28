@@ -599,7 +599,7 @@ ${this.history.join("\n")}
 User is currently showing on screen: ${latestScene.caption}
 User is pointing the microphone at ${currentGuest?.getAttribute("data-name")}, but other guests may continue the discussion. 
 
-Now use the speak_as tool to simulate the audience response. Do NOT add additional response after using the tool.
+Now use the speak_as tool to simulate the audience response, including **exaggerated** facial expression. Do NOT add additional response after using the tool.
               `,
               user`${recognizedText}`,
             ],
@@ -614,8 +614,13 @@ Now use the speak_as tool to simulate the audience response. Do NOT add addition
                         voice: $<AvatarElement>(`avatar-element[data-name="${props.name}"]`)?.getAttribute(
                           "data-voice-id",
                         )!,
+                        onStart: () =>
+                          $<AvatarElement>(`avatar-element[data-name="${props.name}"]`)?.setExpression(
+                            props.expression,
+                          ),
                       })
                       .then(() => {
+                        $<AvatarElement>(`avatar-element[data-name="${props.name}"]`)?.setExpression("smile");
                         that.history.push(`${props.name}: ${props.utterance}`);
                         console.log(`${props.name}: ${props.utterance}`);
                       });
@@ -639,8 +644,8 @@ Now use the speak_as tool to simulate the audience response. Do NOT add addition
                         description: "One sentence brief utterance",
                       },
                       expression: {
-                        enum: AvatarElement.expressionOptions,
-                        description: "Facial expression during utterance",
+                        enum: AvatarElement.expressionOptions.filter((e) => e !== "smile"),
+                        description: "Exaggerated facial expression during utterance",
                       },
                     },
                   },

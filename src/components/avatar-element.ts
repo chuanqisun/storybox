@@ -70,6 +70,15 @@ export class AvatarElement extends HTMLElement {
     this.render();
   }
 
+  setExpression(expression: string) {
+    if (!AvatarElement.expressionOptions.includes(expression)) {
+      console.warn(`Invalid expression: ${expression}`);
+      return;
+    }
+
+    this.setAttribute("data-mouth", expression);
+  }
+
   private render() {
     const updatedMouth = this.getAttribute("data-mouth") ?? "smile";
     const avatar = createAvatar(micah, { seed: this.getAttribute("data-name") ?? "", mouth: [updatedMouth as any] });

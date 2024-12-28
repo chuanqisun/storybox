@@ -11,8 +11,14 @@ export const defaultIds = {
   maleDefault: "iP95p4xoKVk53GoZ742B",
 };
 
+export interface SpeechOption {
+  voice?: string;
+  onStart?: () => void;
+  onEnd?: () => void;
+}
+
 export class ElevenLabsTtsNode extends HTMLElement implements TextToSpeechProvider {
-  private sentenceQueue = createQueue<{ voice?: string }>();
+  private sentenceQueue = createQueue<SpeechOption>();
   // private audioSink = new CustomOutputStream();
   private audioSink = new CustomOutputBasic();
   private isStarted = false;
@@ -32,14 +38,19 @@ export class ElevenLabsTtsNode extends HTMLElement implements TextToSpeechProvid
           // const { started, ended } = await this.playResponseStream(response);
           const { started, ended } = await this.playResponseBasic(response);
 
+          started.then(() => {
+            options?.onStart?.();
+          });
+
           // don't await on ending, so we can continue with the next sentence
           ended.then(() => {
+            options?.onEnd?.();
             if (this.finishCallbacks.has(text)) {
               this.finishCallbacks.get(text)?.();
               this.finishCallbacks.delete(text);
             }
           });
-        }) // must be single threaded to ensure the clips are added in the original sequence
+        }), // must be single threaded to ensure the clips are added in the original sequence
       )
       .subscribe();
   }
@@ -53,15 +64,22 @@ export class ElevenLabsTtsNode extends HTMLElement implements TextToSpeechProvid
     this.isStarted = true;
   }
 
-  async synthesizeSpeech(text: string, options?: { voice?: string; stream?: boolean; modelId?: string }): Promise<ArrayBuffer> {
+  async synthesizeSpeech(
+    text: string,
+    options?: { voice?: string; stream?: boolean; modelId?: string },
+  ): Promise<ArrayBuffer> {
     const response = await this.synthesizeSpeechInternal(text, options);
     const buffer = await response.arrayBuffer();
     return buffer;
   }
 
-  private async synthesizeSpeechInternal(text: string, options?: { voice?: string; stream?: boolean; modelId?: string }) {
+  private async synthesizeSpeechInternal(
+    text: string,
+    options?: { voice?: string; stream?: boolean; modelId?: string },
+  ) {
     const connection = this.closest<AIBar>("ai-bar")?.getAzureConnection();
-    if (!connection) throw new Error("Unable to get credentials from the closest <ai-bar>. Did you forget to provide them?");
+    if (!connection)
+      throw new Error("Unable to get credentials from the closest <ai-bar>. Did you forget to provide them?");
 
     const requestInit = {
       method: "POST",
@@ -70,12 +88,21 @@ export class ElevenLabsTtsNode extends HTMLElement implements TextToSpeechProvid
         "Content-Type": "application/json",
       },
       // body: JSON.stringify({ text: text, model_id: "eleven_multilingual_v2" }),
-      body: JSON.stringify({ text: text, model_id: options?.modelId ?? "eleven_turbo_v2_5", use_speaker_boost: true, stability: 1, similarity_boost: 1 }),
+      body: JSON.stringify({
+        text: text,
+        model_id: options?.modelId ?? "eleven_turbo_v2_5",
+        use_speaker_boost: true,
+        stability: 1,
+        similarity_boost: 1,
+      }),
     };
 
     const chosenVoice = options?.voice ?? this.getAttribute("voice") ?? defaultIds.maleDefault;
 
-    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${chosenVoice}${options?.stream ? "/stream" : ""}`, requestInit);
+    const response = await fetch(
+      `https://api.elevenlabs.io/v1/text-to-speech/${chosenVoice}${options?.stream ? "/stream" : ""}`,
+      requestInit,
+    );
 
     if (!response.ok) {
       throw new Error(`Error: ${response.status} ${response.statusText}`);
@@ -156,7 +183,7 @@ export class ElevenLabsTtsNode extends HTMLElement implements TextToSpeechProvid
     };
   }
 
-  async queue(text: string, options?: { voice?: string }) {
+  async queue(text: string, options?: SpeechOption) {
     const deferred = Promise.withResolvers<void>();
 
     console.log(`[11-labs-tts:enqueue] ${text}`);

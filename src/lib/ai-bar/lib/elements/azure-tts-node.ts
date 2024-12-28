@@ -6,8 +6,10 @@ export function defineAzureTtsNode(tagName = "azure-tts-node") {
   customElements.define(tagName, AzureTtsNode);
 }
 
-export interface SpeechRequest {
+export interface SpeechOption {
   voice?: string;
+  onStart?: () => void;
+  onEnd?: () => void;
 }
 
 export interface StateChangeEventDetail {
@@ -54,6 +56,7 @@ export class AzureTtsNode extends HTMLElement implements TextToSpeechProvider {
         this.audioSink.appendBuffer(data.audio, {
           onPlayStart: () => {
             console.log(`[azure-tts:speaking] ${data.block.text}`);
+            data.block.options?.onStart?.();
             this.dispatchEvent(
               new CustomEvent<StateChangeEventDetail>("statechange", {
                 detail: { voice: data.block.options?.voice, isOn: true },
@@ -62,6 +65,7 @@ export class AzureTtsNode extends HTMLElement implements TextToSpeechProvider {
           },
           onPlayEnd: () => {
             console.log(`[azure-tts:spoken] ${data.block.text}`);
+            data.block.options?.onEnd?.();
             this.dispatchEvent(
               new CustomEvent<StateChangeEventDetail>("statechange", {
                 detail: { voice: data.block.options?.voice, isOn: false },
@@ -84,7 +88,7 @@ export class AzureTtsNode extends HTMLElement implements TextToSpeechProvider {
     this.audioSink.start();
   }
 
-  async queue(text: string, options?: SpeechRequest) {
+  async queue(text: string, options?: SpeechOption) {
     const deferred = Promise.withResolvers<void>();
 
     console.log(`[azure-tts:enqueue] ${text}`);
@@ -107,16 +111,16 @@ export class AzureTtsNode extends HTMLElement implements TextToSpeechProvider {
 }
 
 function createSentenceQueue() {
-  const sentence$ = new Subject<{ text: string; options?: SpeechRequest }>();
+  const sentence$ = new Subject<{ text: string; options?: SpeechOption }>();
 
-  function enqueue(text: string, options?: SpeechRequest) {
+  function enqueue(text: string, options?: SpeechOption) {
     if (text.trim()) {
       sentence$.next({ text, options });
     }
   }
 
   return {
-    sentenceQueue: sentence$ as Observable<{ text: string; options?: SpeechRequest }>,
+    sentenceQueue: sentence$ as Observable<{ text: string; options?: SpeechOption }>,
     enqueue,
   };
 }
