@@ -11,3 +11,4 @@ Tangible Stories
 - Refine render styles
 - increase VAD trigger threshold
 - Remove image hover title
+- Add state machine visualization to system design
