@@ -8,15 +8,20 @@ import {
   distinctUntilKeyChanged,
   filter,
   finalize,
+  firstValueFrom,
   from,
   fromEvent,
+  last,
   map,
   merge,
   of,
+  share,
+  skipWhile,
   startWith,
   Subject,
   Subscription,
   switchMap,
+  take,
   takeWhile,
   tap,
 } from "rxjs";
@@ -35,6 +40,7 @@ import { $, $all, $new } from "../lib/dom";
 import { parseJsonStream } from "../lib/json-stream";
 import { tryParse } from "../lib/parse";
 import { getVision } from "./vision";
+import { characterFallbackVoice, narratorVoice, voiceOptions, type VoiceOption } from "./voice-map";
 
 export interface StoryState {
   stage: "new" | "customizing" | "editing" | "trailer";
@@ -101,6 +107,7 @@ const guests = $<HTMLElement>("#guests")!;
 const trailerImage = $<HTMLImageElement>("#trailer-image")!;
 const closedCaption = $<HTMLElement>("#closed-caption")!;
 const danmuContainer = $<HTMLElement>("#danmu")!;
+const endingTitle = $<HTMLElement>("#ending-title")!;
 
 const vision = getVision();
 
@@ -798,7 +805,7 @@ Respond in valid JSON, with the following type interface:
     sceneDescription: string;
     voiceTracks: {
       timestamp: string; // "MM:SS" format
-      speaker: string; // "Voice-over" or the name of the character
+      speaker: string; // "Voice-over" or the name of the character e.g. ${state$.value.characters.map((ele) => `"${ele.characterName}"`).join(", ")}
       utterance: string;
     }[]
   }[],
@@ -806,7 +813,7 @@ Respond in valid JSON, with the following type interface:
 }
 `,
         user`
-Please make a movie trailer for this story. Make sure to createsuspense and excitement:
+Please make a movie trailer for this story. Make sure to create suspense and excitement:
 
 ${state$.value.scenes.map((scene, i) => `Chapter ${i + 1}: ${scene.narration}`).join("\n")}
 `,
@@ -817,9 +824,18 @@ ${state$.value.scenes.map((scene, i) => `Chapter ${i + 1}: ${scene.narration}`).
       model: "gpt-4o",
     });
 
-    // TODO match voice character
+    const parsedValues$ = parseJsonStream(task).pipe(share());
 
-    parseJsonStream(task)
+    parsedValues$
+      .pipe(
+        last(),
+        tap((item) => {
+          endingTitle.textContent = (item.value as any)?.movieName ?? "The End";
+        }),
+      )
+      .subscribe();
+
+    parsedValues$
       .pipe(
         filter(
           (parsed) => typeof parsed.key === "number" && typeof (parsed.value as any)?.sceneDescription === "string",
@@ -900,6 +916,18 @@ ${(parsed.value as any).voiceTracks.map((track: any) => `${track.speaker}: ${tra
                   : scene,
               ),
             });
+          } else if (!parsedScene.sceneDescription.length) {
+            state$.next({
+              ...state$.value,
+              trailer: state$.value.trailer.map((scene, i) =>
+                i === sceneIndex
+                  ? {
+                      ...scene,
+                      imageUrl: `https://placehold.co/1600X900/black/black`,
+                    }
+                  : scene,
+              ),
+            });
           } else {
             azureDalleNode
               .generateImage({
@@ -924,7 +952,7 @@ ${(parsed.value as any).voiceTracks.map((track: any) => `${track.speaker}: ${tra
 
           state$.next({
             ...state$.value,
-            trailer: [...state$.value.trailer, parsed.value as any as TrailerScene],
+            trailer: [...state$.value.trailer, { ...parsedScene, isEnding: !parsedScene.sceneDescription.length }],
           });
         }),
       )
@@ -1008,6 +1036,8 @@ ${(parsed.value as any).voiceTracks.map((track: any) => `${track.speaker}: ${tra
 
         trailerImage.src =
           scene.imageUrl ?? `https://placehold.co/400?text=${encodeURIComponent(scene.sceneDescription)}`;
+
+        endingTitle.toggleAttribute("hidden", !scene.isEnding);
       }),
     );
   }
@@ -1034,6 +1064,76 @@ ${(parsed.value as any).voiceTracks.map((track: any) => `${track.speaker}: ${tra
   }
 
   useTrailerVoiceover() {
+    // as soon as the all the scenes are designed, invite voice actors
+    const voiceMapPromise = firstValueFrom(
+      state$.pipe(
+        skipWhile((state) => state.trailer.every((scene) => !scene.isEnding)), // skip until we have an ending scene
+        take(1),
+        tap((state) => console.log("[will invite voice actors]", state)),
+        concatMap(async (state) => {
+          const allCharacterNames = [
+            ...new Set(
+              state.trailer
+                .flatMap((scene) => scene.voiceTracks.map((e) => e.speaker))
+                .filter((speaker) => speaker !== "Voice-over"),
+            ),
+          ];
+          const knownCharacterMap = new Map<string, string>(
+            state.characters.map((c) => [c.characterName, c.characterDescription]),
+          );
+
+          const response = await llmNode
+            .getClient("aoai")
+            .chat.completions.create({
+              messages: [
+                system`
+You are a talented casting director. You will cast voice actors for the characters in the story. Match the best voice actor to each character provided by the user. Do NOT cast the same voice actor to multiple characters.
+
+Respond in valid JSON, with the following type interface:
+
+{
+  matches: {
+    storyCharacterName: string;
+    voiceActorName: string;
+  }[]
+}
+`,
+                user`
+Screenplay:
+${state.trailer.map((scene, i) => `Scene ${i + 1}: ${scene.sceneDescription}`).join("\n")}
+
+Story characters:
+${allCharacterNames.map((name) => `${name}: ${knownCharacterMap.get(name) ?? "(No profile, use your best judgement)"}`).join("\n")}
+
+Voice actors:
+${voiceOptions.map((option) => `${option.name}: ${option.description}`).join("\n")}
+            `,
+              ],
+              model: "gpt-4o",
+              response_format: {
+                type: "json_object",
+              },
+            })
+            .then(
+              (response) =>
+                tryParse<{ matches: { storyCharacterName: string; voiceActorName: string }[] }>(
+                  response.choices[0].message.content!,
+                  { matches: [] },
+                ).matches,
+            );
+
+          const voiceMap = new Map<string, VoiceOption>(
+            response.map((match) => [
+              match.storyCharacterName,
+              voiceOptions.find((option) => option.name === match.voiceActorName)!,
+            ]),
+          );
+          console.log(`[voice map ready]`, voiceMap);
+          return voiceMap;
+        }),
+      ),
+    );
+
     return state$.pipe(
       map((state) => state.trailer.find((e) => e.isActive)),
       distinctUntilChanged((a, b) => a?.sceneDescription === b?.sceneDescription),
@@ -1041,16 +1141,20 @@ ${(parsed.value as any).voiceTracks.map((track: any) => `${track.speaker}: ${tra
         if (!scene) return of([]);
 
         // TODO require voice actor match, for now use standard narrator voice
-        const epicVoice = `FF7KdobWPaiR0vkcALHF`;
-        const characterVoice = `nDJIICjR9zfJExIFeSCN`;
         return from(scene.voiceTracks).pipe(
           concatMap(async (track) => {
+            const voiceMap = await voiceMapPromise;
             const captionLine = $new("p", {}, [`${track.speaker}: ${track.utterance ?? ""}`]);
             closedCaption.appendChild(captionLine);
             captionLine.scrollIntoView({ behavior: "smooth" });
             await eleventLabsTtsNode.queue(track.utterance, {
-              voice: track.speaker === "Voice-over" ? epicVoice : characterVoice,
+              voice:
+                track.speaker === "Voice-over"
+                  ? narratorVoice
+                  : (voiceMap.get(track.speaker)?.id ?? characterFallbackVoice),
             });
+
+            await new Promise((resolve) => setTimeout(resolve, 1000)); // 1 second between scenes
           }),
           finalize(() => {
             // mark as played

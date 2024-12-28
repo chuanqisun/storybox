@@ -256,6 +256,29 @@ menu {
   z-index: var(--danmaku-z);
 }
 
+.movie-title {
+  position: absolute;
+  font-size: 8vw;
+  text-align: center;
+  font-weight: bold;
+  text-transform: uppercase;
+
+  inset: 0;
+  margin: auto;
+  place-self: center;
+
+  animation: zoom-in ease-in 1s both;
+}
+
+@keyframes zoom-in {
+  from {
+    transform: scale(0.5);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
 #timeline {
   * {
     display: none;
