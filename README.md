@@ -4,13 +4,13 @@ Tangible Stories
 
 ## TODOs
 
-- Character RAG for scene consistency
 - Refine render styles
 - Increase VAD trigger threshold
 - Add state machine visualization to system design
 
 ## DONE
 
+- Character RAG for scene consistency
 - Avatar name tag hide during silhouette
 - Text wrap: balance for title
 - Character grid layout, use baseball card style

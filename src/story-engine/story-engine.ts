@@ -41,7 +41,13 @@ import { $, $all, getDetail } from "../lib/dom";
 import { parseJsonStream } from "../lib/json-stream";
 import { tryParse } from "../lib/parse";
 import { getCaption } from "./caption";
-import { getCharacterPrompt, getStoryboardSystemPrompt, getStoryboardUserPrompt, renderStyle } from "./render-prompts";
+import {
+  getCharacterPrompt,
+  getScenePrompt,
+  getStoryboardSystemPrompt,
+  getStoryboardUserPrompt,
+  getTrailPrompt,
+} from "./render-prompts";
 import { getVision } from "./vision";
 import { characterFallbackVoice, narratorVoice, voiceOptions, type VoiceOption } from "./voice-map";
 
@@ -758,7 +764,7 @@ After speaking, respond with one sentence summarizing the audience response.
                 illustration: args.illustration,
               });
 
-              const dataUrl = await togetherAINode.generateImageDataURL(`${refinedCaption} ${renderStyle}`, {
+              const dataUrl = await togetherAINode.generateImageDataURL(getScenePrompt(refinedCaption), {
                 width: 768,
                 height: 432,
               });
@@ -807,7 +813,7 @@ After speaking, respond with one sentence summarizing the audience response.
                 illustration: args.update.illustration,
               });
 
-              const dataUrl = await togetherAINode.generateImageDataURL(`${refinedCaption} ${renderStyle}`, {
+              const dataUrl = await togetherAINode.generateImageDataURL(getScenePrompt(refinedCaption), {
                 width: 768,
                 height: 432,
               });
@@ -1013,7 +1019,7 @@ ${(parsed.value as any).voiceTracks.map((track: any) => `${track.speaker}: ${tra
           } else {
             azureDalleNode
               .generateImage({
-                prompt: parsedScene.sceneDescription + " " + renderStyle, // TODO adjust style filter
+                prompt: getTrailPrompt(parsedScene.sceneDescription),
                 style: "vivid",
                 size: "1792x1024",
               })
