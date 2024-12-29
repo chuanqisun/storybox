@@ -40,7 +40,7 @@ export function getVision() {
           .create(
             {
               messages: [
-                system`Precisely describe the objects on the desk and their relationships in one brief sentence. Do NOT mention the desk itself`,
+                system`Precisely describe the objects in the scene and their relationships in one brief sentence. Do NOT mention desk surface, wall, or background.`,
                 {
                   role: "user",
                   content: [
