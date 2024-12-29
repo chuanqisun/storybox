@@ -58,7 +58,8 @@ export interface StoryState {
 export interface StoryCharacter {
   dailyObject: string;
   characterName: string;
-  characterDescription: string;
+  characterBackstory: string;
+  characterVisualSketch: string;
   imageUrl?: string;
 }
 
@@ -276,17 +277,19 @@ export class StoryEngine {
             parameters: z.object({
               dailyObject: z.string().describe("The real world object the user has shown"),
               characterName: z.string().describe("The name the character in the story"),
-              characterDescription: z
+              characterBackstory: z.string().describe("Backstory, personality, origin of the character"),
+              characterVisualSketch: z
                 .string()
                 .describe(
-                  "Detailed description of the character, including age, ethnicity, gender, skin color, facial features, body build, hair style and color, clothing, etc",
+                  "Detailed visual description of the character, including age, ethnicity, gender, skin color, facial features, body build, hair style and color, clothing, accessories etc",
                 ),
             }),
             run: (args) => {
               const newCharacter: StoryCharacter = {
                 dailyObject: args.dailyObject,
                 characterName: args.characterName,
-                characterDescription: args.characterDescription,
+                characterBackstory: args.characterBackstory,
+                characterVisualSketch: args.characterVisualSketch,
               };
 
               state$.next({
@@ -296,10 +299,10 @@ export class StoryEngine {
 
               characterImagePrompt$.next({
                 characterName: args.characterName,
-                characterDescription: args.characterDescription,
+                characterDescription: args.characterVisualSketch,
               });
 
-              return `Character added: ${args.dailyObject} represents ${args.characterName} (${args.characterDescription})`;
+              return `Character added: ${args.dailyObject} represents ${args.characterName} (${args.characterBackstory})`;
             },
           })
           .addDraftTool({
@@ -328,10 +331,15 @@ export class StoryEngine {
               update: z
                 .object({
                   characterName: z.string().describe("The name the character in the story"),
-                  characterDescription: z
+                  characterBackstory: z
                     .string()
                     .describe(
                       "Detailed description of the character, including age, ethnicity, gender, skin color, facial features, body build, hair style and color, clothing, etc",
+                    ),
+                  characterVisualSketch: z
+                    .string()
+                    .describe(
+                      "Detailed visual description of the character, including age, ethnicity, gender, skin color, facial features, body build, hair style and color, clothing, accessories etc",
                     ),
                 })
                 .describe("The updated name and description of the character in the story"),
@@ -343,12 +351,13 @@ export class StoryEngine {
               const updatedElement: StoryCharacter = {
                 ...existing,
                 characterName: args.update.characterName,
-                characterDescription: args.update.characterDescription,
+                characterBackstory: args.update.characterBackstory,
+                characterVisualSketch: args.update.characterVisualSketch,
               };
 
               characterImagePrompt$.next({
                 characterName: args.update.characterName,
-                characterDescription: updatedElement.characterDescription,
+                characterDescription: updatedElement.characterVisualSketch,
               });
 
               state$.next({
@@ -397,7 +406,7 @@ ${state.characters
   .map((ele) =>
     `
 Daily object: ${ele.dailyObject} 
-Character: ${ele.characterName} (${ele.characterDescription})
+Character: ${ele.characterName} (${ele.characterBackstory})
   `.trim(),
   )
   .join("\n\n")}`
@@ -441,7 +450,7 @@ After each tool use, you MUST concisely tell user what you did.
       messages: [
         system`You are a talented story writer. Write a stunning narrative featuring these elements:
 
-${state$.value.characters.map((ele) => `${ele.characterName} (${ele.characterDescription})`).join("\n")}
+${state$.value.characters.map((ele) => `${ele.characterName} (${ele.characterBackstory})`).join("\n")}
 
 You must write a high level narrative for the story and leave out all the details. The narrative should be one very concise paragraph.
 
@@ -512,7 +521,7 @@ Respond in valid JSON, with the following type interface:
         `,
           user`
 Main characters:
-${state$.value.characters.map((ele) => `${ele.characterName} (${ele.characterDescription})`).join("\n")}
+${state$.value.characters.map((ele) => `${ele.characterName} (${ele.characterBackstory})`).join("\n")}
 
 Guest list:
 ${guestAvatars.map((avatar, i) => `Guest ${i + 1}: ${avatar.getAttribute("data-name")!} (${avatar.getAttribute("data-gender")})`).join("\n")}
@@ -792,7 +801,7 @@ ${state.characters
   .map((ele) =>
     `
 Daily object: ${ele.dailyObject} 
-Character: ${ele.characterName} (${ele.characterDescription})
+Character: ${ele.characterName} (${ele.characterBackstory})
   `.trim(),
   )
   .join("\n\n")}
@@ -834,7 +843,7 @@ You must describe the trailer as a sequence of scenes. In each scene:
 - Design voice tracks with narrator voice-over and/or short character dialogue/monologue. Make sure each character has a chance to speak
 
 Use this reference to determine the appearance of the characters:
-${state$.value.characters.map((ele) => `${ele.characterName}: ${ele.characterDescription}`).join("\n")}
+${state$.value.characters.map((ele) => `${ele.characterName}: ${ele.characterBackstory}`).join("\n")}
 
 The last scene must have an empty description with a single voice track item, creatively announcing the movie's name and tease that it will come to theater in Summer 2025.
 Generate the movie name at the end.
@@ -1116,7 +1125,7 @@ ${(parsed.value as any).voiceTracks.map((track: any) => `${track.speaker}: ${tra
             ),
           ];
           const knownCharacterMap = new Map<string, string>(
-            state.characters.map((c) => [c.characterName, c.characterDescription]),
+            state.characters.map((c) => [c.characterName, c.characterBackstory]),
           );
 
           const response = await llmNode
@@ -1214,12 +1223,13 @@ ${voiceOptions.map((option) => `${option.name}: ${option.description}`).join("\n
       stage: "editing",
       characters: [
         {
-          characterName: "Mickey Mouse",
-          characterDescription: "A friendly mouse with a red bowtie and white gloves",
+          characterName: "Supercrab",
+          characterBackstory: "Grew up in the ocean, Supercrab loves to sing and has many friends",
+          characterVisualSketch: "A friendly crab with a red bowtie and white boots",
           dailyObject: "A yellow rubber duck",
         },
       ],
-      story: "Mickey Mouse had to find his way home",
+      story: "Supercrab had to find his way home",
     });
   }
 
@@ -1230,12 +1240,14 @@ ${voiceOptions.map((option) => `${option.name}: ${option.description}`).join("\n
       characters: [
         {
           characterName: "Ducky",
-          characterDescription: "A friendly duck with a red bowtie and white boots",
+          characterBackstory: "Grew up in the ocean, Ducky loves to sing and has many friends",
+          characterVisualSketch: "A friendly duck with a red bowtie and white boots",
           dailyObject: "A yellow rubber duck",
         },
         {
           characterName: "Fox",
-          characterDescription: "A mischievous fox with a bushy tail and a red scarf",
+          characterBackstory: "A wanted mischievous fox, often making trouble",
+          characterVisualSketch: "A mischievous fox with a bushy tail and a red scarf",
           dailyObject: "A red rubber duck",
         },
       ],
