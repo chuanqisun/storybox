@@ -7,10 +7,6 @@ export function getScenePrompt(subject: string) {
   return `Superhero Comic graphic novel illustration. Rich, saturated colors paired with strong, detailed outlines. ${subject}`;
 }
 
-export function getCharacterPrompt2(subject: string) {
-  return `Mugshot view of a single character. ${subject} Claymation-style against solid contrasting color background. Use a warm, autumnal color palette. The lighting is soft and diffused, creating a gentle, almost nostalgic mood. The textures are highly tactile, emphasizing the handmade quality of the materials.  The overall aesthetic is whimsical and slightly surreal, with a focus on creating a sense of depth and detail despite the simplistic forms. The rendering style is painterly, with visible brushstrokes or sculpting marks adding to the handcrafted feel.  Colors are muted and slightly desaturated, with a predominance of oranges, browns, and greens.  The background is slightly blurred, drawing attention to the main focus.`;
-}
-
 export function getCharacterPrompt(subject: string) {
   return `Mugshot view of a single character. ${subject} Claymation-style against solid contrasting color background. Use a warm, autumnal color palette. The lighting is soft and diffused, creating a gentle, almost nostalgic mood. The textures are highly tactile, emphasizing the handmade quality of the materials.  The overall aesthetic is whimsical and slightly surreal, with a focus on creating a sense of depth and detail despite the simplistic forms. The rendering style is painterly, with visible brushstrokes or sculpting marks adding to the handcrafted feel.  Colors are muted and slightly desaturated, with a predominance of oranges, browns, and greens.  The background is slightly blurred, drawing attention to the main focus.`;
 }

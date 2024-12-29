@@ -261,14 +261,19 @@ export class StoryEngine {
   useCharactersDisplay() {
     return characterImagePrompt$.pipe(
       switchMap(async (prompt) => {
-        togetherAINode.generateImageDataURL(getCharacterPrompt(prompt.characterDescription)).then((dataUrl) => {
-          state$.next({
-            ...state$.value,
-            characters: state$.value.characters.map((e) =>
-              e.characterName === prompt.characterName ? { ...e, imageUrl: dataUrl } : e,
-            ),
+        togetherAINode
+          .generateImageDataURL(getCharacterPrompt(prompt.characterDescription), {
+            width: 480,
+            height: 400,
+          })
+          .then((dataUrl) => {
+            state$.next({
+              ...state$.value,
+              characters: state$.value.characters.map((e) =>
+                e.characterName === prompt.characterName ? { ...e, imageUrl: dataUrl } : e,
+              ),
+            });
           });
-        });
       }),
     );
   }

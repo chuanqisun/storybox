@@ -4,12 +4,12 @@ Tangible Stories
 
 ## TODOs
 
-- Refine render styles
 - Increase VAD trigger threshold
 - Add state machine visualization to system design
 
 ## DONE
 
+- Refine render styles
 - Character RAG for scene consistency
 - Avatar name tag hide during silhouette
 - Text wrap: balance for title
