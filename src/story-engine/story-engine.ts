@@ -163,7 +163,9 @@ export class StoryEngine {
             case "editing": {
               // FIXME: avoid using manual timing
               setTimeout(() => {
-                realtime.appendUserMessage("Please create the opening scene now").createResponse();
+                realtime
+                  .appendUserMessage("Please use add_next_scene to create the opening scene now")
+                  .createResponse();
               }, 1000);
 
               this.generateGuests();
@@ -710,33 +712,6 @@ After speaking, respond with one sentence summarizing the audience response.
     return merge(mouseDown$, mouseUp$, updateSpeakingVoice$, handleUserSpeech$);
   }
 
-  async refineSceneCaption(options: {
-    state: StoryState;
-    fewShotScenes: StoryScene[];
-    narration: string;
-    illustration: string;
-  }) {
-    return llmNode
-      .getClient("aoai")
-      .chat.completions.create({
-        messages: [
-          system`${getStoryboardSystemPrompt(`
-                      ${options.state.characters
-                        .map((ele) => `${ele.characterName}: ${ele.characterVisualSketch}`.trim())
-                        .join("\n")}
-                      `)}`,
-          ...options.fewShotScenes.flatMap((scene) => [
-            user`${getStoryboardUserPrompt(scene.narration, scene.caption)}`,
-            assistant`${scene.refinedCaption}`,
-          ]),
-          user`${getStoryboardUserPrompt(options.narration, options.illustration)}`,
-        ],
-        model: options.fewShotScenes.length ? "gpt-4o-mini" : "gpt-4o",
-      })
-      .then((response) => response.choices[0].message.content!)
-      .catch(() => options.illustration);
-  }
-
   useSceneEditorInstruction() {
     return state$.pipe(
       distinct((state) => JSON.stringify([state.scenes, state.vision])),
@@ -885,6 +860,33 @@ Now work with the user to develop the story one scene at a time.
     );
   }
 
+  async refineSceneCaption(options: {
+    state: StoryState;
+    fewShotScenes: StoryScene[];
+    narration: string;
+    illustration: string;
+  }) {
+    return llmNode
+      .getClient("aoai")
+      .chat.completions.create({
+        messages: [
+          system`${getStoryboardSystemPrompt(`
+                      ${options.state.characters
+                        .map((ele) => `${ele.characterName}: ${ele.characterVisualSketch}`.trim())
+                        .join("\n")}
+                      `)}`,
+          ...options.fewShotScenes.flatMap((scene) => [
+            user`${getStoryboardUserPrompt(scene.narration, scene.caption)}`,
+            assistant`${scene.refinedCaption}`,
+          ]),
+          user`${getStoryboardUserPrompt(options.narration, options.illustration)}`,
+        ],
+        model: options.fewShotScenes.length ? "gpt-4o-mini" : "gpt-4o",
+      })
+      .then((response) => response.choices[0].message.content!)
+      .catch(() => options.illustration);
+  }
+
   async generateTrailer() {
     const aoai = llmNode.getClient("aoai");
     const task = await aoai.chat.completions.create({
@@ -1017,12 +1019,27 @@ ${(parsed.value as any).voiceTracks.map((track: any) => `${track.speaker}: ${tra
           } else if (isEnding) {
             // leave out ending image
           } else {
-            azureDalleNode
-              .generateImage({
-                prompt: getTrailPrompt(parsedScene.sceneDescription),
-                style: "vivid",
-                size: "1792x1024",
+            aoai.chat.completions
+              .create({
+                messages: [
+                  system`${getStoryboardSystemPrompt(`
+                      ${state$.value.characters
+                        .map((ele) => `${ele.characterName}: ${ele.characterVisualSketch}`.trim())
+                        .join("\n")}
+                      `)}`,
+                  user`${parsedScene.sceneDescription}`,
+                ],
+                model: "gpt-4o",
               })
+              .then((response) => response.choices[0].message.content!)
+              .catch(() => parsedScene.sceneDescription)
+              .then((refinedDescription) =>
+                azureDalleNode.generateImage({
+                  prompt: getTrailPrompt(refinedDescription),
+                  style: "vivid",
+                  size: "1792x1024",
+                }),
+              )
               .then((generatedImage) => {
                 state$.next({
                   ...state$.value,
