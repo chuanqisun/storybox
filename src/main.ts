@@ -42,6 +42,7 @@ const globalClick$ = fromEvent(document, "click").pipe(
         connectButton.textContent = "Connecting...";
         await realtime.start();
         realtime.enableTranscription();
+        realtime.updateSession({ threshold: 0.75 });
         storyEngine.start();
         azureSttNode.startMicrophone();
         azureTtsNode.startSpeaker();

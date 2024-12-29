@@ -23,7 +23,7 @@ Illustrate any characters or creatures in the foreground. Describe their gender,
 Illustrate environment in the background. Describe the weather, time of day, landscape, buildings, objects, etc. You can change environment for each scene as long as they are consistent with the narration.
 Leave out specific art style, line art, or color palette. Let the artist decide those details.
 
-IMPORTANT: each time you mention a character, you must describe their styles using the same language from the style guide:
+IMPORTANT: each time you mention a character or creature, you must describe their species and styles using the same language from the style guide:
 ${characterDetails}
 
 Respond in a single paragraph, describing the illustration, start with "In the foreground..."

@@ -4,11 +4,11 @@ Tangible Stories
 
 ## TODOs
 
-- Increase VAD trigger threshold
 - Add state machine visualization to system design
 
 ## DONE
 
+- Increase VAD trigger threshold
 - Refine render styles
 - Character RAG for scene consistency
 - Avatar name tag hide during silhouette
