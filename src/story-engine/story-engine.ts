@@ -36,11 +36,12 @@ import { LlmNode } from "../lib/ai-bar/lib/elements/llm-node";
 import { RealtimeEvents, type OpenAIRealtimeNode } from "../lib/ai-bar/lib/elements/openai-realtime-node";
 import type { TogetherAINode } from "../lib/ai-bar/lib/elements/together-ai-node";
 import type { AIBarEventDetail } from "../lib/ai-bar/lib/events";
-import { system, user } from "../lib/ai-bar/lib/message";
+import { assistant, system, user } from "../lib/ai-bar/lib/message";
 import { $, $all, getDetail } from "../lib/dom";
 import { parseJsonStream } from "../lib/json-stream";
 import { tryParse } from "../lib/parse";
 import { getCaption } from "./caption";
+import { getCharacterPrompt, getStoryboardSystemPrompt, getStoryboardUserPrompt, renderStyle } from "./render-prompts";
 import { getVision } from "./vision";
 import { characterFallbackVoice, narratorVoice, voiceOptions, type VoiceOption } from "./voice-map";
 
@@ -68,6 +69,7 @@ export interface StoryScene {
   imageUrl?: string;
   narration: string;
   caption: string;
+  refinedCaption: string;
 }
 
 export interface StoryGuest {
@@ -127,9 +129,6 @@ const state$ = new BehaviorSubject<StoryState>({
 });
 
 const characterImagePrompt$ = new Subject<{ characterName: string; characterDescription: string }>();
-
-const renderStyle = `A claymation-style image with a warm, autumnal color palette. The lighting is soft and diffused, creating a gentle, almost nostalgic mood. The textures are highly tactile, emphasizing the handmade quality of the materials.  The overall aesthetic is whimsical and slightly surreal, with a focus on creating a sense of depth and detail despite the simplistic forms. The rendering style is painterly, with visible brushstrokes or sculpting marks adding to the handcrafted feel.  Colors are muted and slightly desaturated, with a predominance of oranges, browns, and greens.  The background is slightly blurred, drawing attention to the main focus.`;
-const renderStyle2 = `Rendered in a style reminiscent of Japanese animation, featuring a palette of soft, muted colors with a warm, slightly desaturated tone.  The lighting is natural and diffused, creating a soft, even illumination across the scene with a strong light source seemingly from above, casting subtle shadows.  The lines are clean and slightly rounded, giving a smooth, polished look. The overall aesthetic is peaceful and nostalgic, with a slightly hazy or dreamlike quality to the rendering.  The style suggests a focus on atmosphere and mood rather than sharp detail.`;
 
 export class StoryEngine {
   private subs: Subscription[] = [];
@@ -254,7 +253,7 @@ export class StoryEngine {
   useCharactersDisplay() {
     return characterImagePrompt$.pipe(
       switchMap(async (prompt) => {
-        togetherAINode.generateImageDataURL(prompt.characterDescription + ` ${renderStyle}`).then((dataUrl) => {
+        togetherAINode.generateImageDataURL(getCharacterPrompt(prompt.characterDescription)).then((dataUrl) => {
           state$.next({
             ...state$.value,
             characters: state$.value.characters.map((e) =>
@@ -705,6 +704,33 @@ After speaking, respond with one sentence summarizing the audience response.
     return merge(mouseDown$, mouseUp$, updateSpeakingVoice$, handleUserSpeech$);
   }
 
+  async refineSceneCaption(options: {
+    state: StoryState;
+    fewShotScenes: StoryScene[];
+    narration: string;
+    illustration: string;
+  }) {
+    return llmNode
+      .getClient("aoai")
+      .chat.completions.create({
+        messages: [
+          system`${getStoryboardSystemPrompt(`
+                      ${options.state.characters
+                        .map((ele) => `${ele.characterName}: ${ele.characterVisualSketch}`.trim())
+                        .join("\n")}
+                      `)}`,
+          ...options.fewShotScenes.flatMap((scene) => [
+            user`${getStoryboardUserPrompt(scene.narration, scene.caption)}`,
+            assistant`${scene.refinedCaption}`,
+          ]),
+          user`${getStoryboardUserPrompt(options.narration, options.illustration)}`,
+        ],
+        model: options.fewShotScenes.length ? "gpt-4o-mini" : "gpt-4o",
+      })
+      .then((response) => response.choices[0].message.content!)
+      .catch(() => options.illustration);
+  }
+
   useSceneEditorInstruction() {
     return state$.pipe(
       distinct((state) => JSON.stringify([state.scenes, state.vision])),
@@ -715,14 +741,27 @@ After speaking, respond with one sentence summarizing the audience response.
             description: "Continue the story with a new scene",
             parameters: z.object({
               narration: z.string().describe("The story narration for the scene in one short sentence"),
-              sceneDescription: z
+              illustration: z
                 .string()
-                .describe(
-                  "A visual depiction of the scene in the story. Use your best imagination to fill in the appearance, relations of the characters, camera angle, lighting, surrounding. Do NOT mention everyday objects themselves. Instead, focus on what they represent",
-                ),
+                .describe("Describe a visual scene that complements or augments the narration in one concise sentence"),
             }),
             run: async (args) => {
-              const dataUrl = await togetherAINode.generateImageDataURL(`${args.sceneDescription} ${renderStyle}`);
+              // select 2 other scenes to add consistency
+              const otherScenes = state.scenes
+                .filter((otherScene) => otherScene.narration && otherScene.refinedCaption)
+                .slice(0, 2);
+
+              const refinedCaption = await this.refineSceneCaption({
+                state,
+                fewShotScenes: otherScenes,
+                narration: args.narration,
+                illustration: args.illustration,
+              });
+
+              const dataUrl = await togetherAINode.generateImageDataURL(`${refinedCaption} ${renderStyle}`, {
+                width: 768,
+                height: 432,
+              });
 
               state$.next({
                 ...state$.value,
@@ -731,7 +770,8 @@ After speaking, respond with one sentence summarizing the audience response.
                   {
                     placeholderImgUrl: dataUrl,
                     narration: args.narration,
-                    caption: args.sceneDescription,
+                    caption: args.illustration,
+                    refinedCaption,
                   },
                 ],
               });
@@ -747,21 +787,30 @@ After speaking, respond with one sentence summarizing the audience response.
             name: "edit_current_scene",
             description: "Edit the current scene",
             parameters: z.object({
-              update: z
-                .object({
-                  narration: z.string().describe("The story narration for the scene in one short sentence"),
-                  sceneDescription: z
-                    .string()
-                    .describe(
-                      "A visual depiction of the scene in the story. Use your best imagination to fill in the appearance, relations of the characters, camera angle, lighting, surrounding. Do NOT mention everyday objects themselves. Instead, focus on what they represent",
-                    ),
-                })
-                .describe("The updated narration and scene description for the current scene"),
+              update: z.object({
+                narration: z.string().describe("The story narration for the scene in one short sentence"),
+                illustration: z
+                  .string()
+                  .describe(
+                    "Describe a visual scene that complements or augments the narration in one concise sentence",
+                  ),
+              }),
             }),
             run: async (args) => {
-              const dataUrl = await togetherAINode.generateImageDataURL(
-                `${args.update.sceneDescription} ${renderStyle}`,
-              );
+              const previousScenes = state.scenes
+                .slice(0, -1)
+                .filter((scene) => scene.narration && scene.refinedCaption);
+              const refinedCaption = await this.refineSceneCaption({
+                state,
+                fewShotScenes: previousScenes,
+                narration: args.update.narration,
+                illustration: args.update.illustration,
+              });
+
+              const dataUrl = await togetherAINode.generateImageDataURL(`${refinedCaption} ${renderStyle}`, {
+                width: 768,
+                height: 432,
+              });
 
               state$.next({
                 ...state$.value,
@@ -771,7 +820,8 @@ After speaking, respond with one sentence summarizing the audience response.
                         ...scene,
                         imageUrl: dataUrl,
                         narration: args.update.narration,
-                        caption: args.update.sceneDescription,
+                        caption: args.update.illustration,
+                        refinedCaption,
                       }
                     : scene,
                 ),
@@ -816,9 +866,9 @@ ${state.scenes.map((scene, i) => `Scene ${i + 1}: ${scene.narration}`).join("\n"
 
 Now work with the user to develop the story one scene at a time.
 - Let user guide you with the objects they show and the words the say. The user is currently showing you: ${state.vision}
-- Use add_next_scene tool to continue the story:
-  - When developing the narration, do NOT deviate from the overall story.
-  - When writing scene visual description, do NOT mention the daily objects themselves. Instead, focus on what they represent. Include details about their imaginary appearance, position, relation to the scene and each other, their color, shape, size,. Also mention camera angle, lighting, to help people visualize it.
+- Use add_next_scene tool to continue the story. You must provide a narration and an illustration:
+  - The narration should contribute to the overall story.
+  - The illustration should NOT include the daily objects user are showing. Instead, come up with the best scene to complements or augments the narration.
   - After using the tool, you MUST respond with the narration
 - Use edit_current_scene to edit the current scene.
   - After using the tool, concisely tell user what you did.
@@ -1257,21 +1307,25 @@ ${voiceOptions.map((option) => `${option.name}: ${option.description}`).join("\n
           placeholderImgUrl: "https://placehold.co/400",
           narration: "Ducky was walking home",
           caption: "Ducky is walking home",
+          refinedCaption: "Ducky is walking home on a sunny day",
         },
         {
           placeholderImgUrl: "https://placehold.co/400",
           narration: "He got lost in the magic forest",
           caption: "Ducky is lost in the magic forest",
+          refinedCaption: "Ducky is lost in the magic forest with a friendly fox",
         },
         {
           placeholderImgUrl: "https://placehold.co/400",
           narration: "He met a friendly fox",
           caption: "Ducky meets a friendly fox",
+          refinedCaption: "Ducky meets a friendly fox in the magic forest",
         },
         {
           placeholderImgUrl: "https://placehold.co/400",
           narration: "They found his way home together",
           caption: "Ducky and the fox find his way home together",
+          refinedCaption: "Ducky and the fox find his way home together on a sunny day",
         },
       ],
     });
