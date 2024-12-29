@@ -1,0 +1,1 @@
+ffmpeg -i input.mp4 -c:v libaom-av1 -crf 30 -b:v 0 -c:a libopus -threads 16 input.webm
