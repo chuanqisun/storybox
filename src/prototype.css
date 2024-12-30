@@ -62,3 +62,64 @@ h6 {
 body {
   font-family: monospace;
 }
+
+img-comparison-slider {
+  img {
+    max-width: 40rem;
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+body {
+  margin: auto;
+  max-width: 60rem;
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+}
+
+button {
+  padding: 4px 8px;
+}
+
+button[data-selected] {
+  background-color: white;
+  color: black;
+}
+
+#character-list {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+[data-options] {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.media-object {
+  display: grid;
+  gap: 16px;
+
+  @media (min-width: 40rem) {
+    grid-template-columns: 1fr 20rem;
+
+    > * {
+      grid-row: 1 / span 1;
+    }
+
+    > :nth-child(2) {
+      grid-column: 1 / span 1;
+    }
+    > :nth-child(1) {
+      grid-column: 2 / span 1;
+    }
+  }
+}
+
+section {
+  display: grid;
+  gap: 8px;
+}

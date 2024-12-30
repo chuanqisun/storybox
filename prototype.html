@@ -8,21 +8,40 @@
   </head>
 
   <body>
-    <h1>Symbolic binding prototype</h1>
-    <section id="style">
-      <h2>Style</h2>
-      <div>
-        <button data-action="previous">Previous</button>
-        <button data-action="next">Next</button>
+    <h1>Symbolic lensing prototype for Storybox</h1>
+    <section data-category="style">
+      <h2>1. Select a style</h2>
+      <div data-options></div>
+      <div class="media-object">
+        <p></p>
+        <img-comparison-slider>
+          <img slot="first" src="/images/style-0.webp" />
+          <img slot="second" src="/images/style-0.webp" />
+        </img-comparison-slider>
       </div>
-      <img />
-      <p></p>
     </section>
-    <section>
-      <h2>Character</h2>
+
+    <section data-category="characters">
+      <h2>2. Develop characters</h2>
+      <div data-options></div>
+      <div class="media-object">
+        <div id="character-list"></div>
+        <img-comparison-slider>
+          <img slot="first" src="/images/characters-0.webp" />
+          <img slot="second" src="/images/characters-0.webp" />
+        </img-comparison-slider>
+      </div>
     </section>
-    <section>
-      <h2>Scene</h2>
+    <section data-category="scene">
+      <h2>3. Interpret a scene</h2>
+      <div data-options></div>
+      <div class="media-object">
+        <p></p>
+        <img-comparison-slider>
+          <img slot="first" src="/images/scene-0.webp" />
+          <img slot="second" src="/images/scene-0.webp" />
+        </img-comparison-slider>
+      </div>
     </section>
     <script src="/src/prototype.ts" type="module"></script>
   </body>
