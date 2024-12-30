@@ -56,3 +56,6 @@ document.addEventListener("click", (e) => {
 
   document.querySelector("#character-list")!.innerHTML = characterListHTML;
 });
+
+// auto select first style
+document.querySelector<HTMLButtonElement>("[data-select]")?.click();
