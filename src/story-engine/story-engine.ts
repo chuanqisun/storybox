@@ -402,7 +402,7 @@ export class StoryEngine {
           .commitDraftTools()
           .updateSessionInstructions(
             `
-You are a talented storyteller. You are helping user design the characters and objects of a story.
+You are hosting a workshop to help user understand and solve business problems by storytelling. The user is designing characters for the story.
 The user will show you daily objects they would like to use to represent the characters in the story.
 Your job is to keep track of what each daily object represents in the story.
 
@@ -456,7 +456,7 @@ After each tool use, you MUST concisely tell user what you did.
     const aoai = llmNode.getClient("aoai");
     const story = await aoai.chat.completions.create({
       messages: [
-        system`You are a talented story writer. Write a stunning narrative featuring these elements:
+        system`You are a talented story writer for business related storytelling. Write a stunning narrative featuring these elements:
 
 ${state$.value.characters.map((ele) => `${ele.characterName} (${ele.characterBackstory})`).join("\n")}
 
@@ -826,7 +826,7 @@ After speaking, respond with one sentence summarizing the audience response.
           .commitDraftTools() // clear previous tools
           .updateSessionInstructions(
             `
-You are a talented storyteller. You are developing a story with the user. 
+You are a talented storyteller. You are developing a story with the user to help them understand and solve business problems. 
 You and the user have agreed on using the following daily objects to represent characters in the story:
 
 ${state.characters
