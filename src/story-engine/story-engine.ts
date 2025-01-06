@@ -343,11 +343,7 @@ export class StoryEngine {
               update: z
                 .object({
                   characterName: z.string().describe("The name the character in the story"),
-                  characterBackstory: z
-                    .string()
-                    .describe(
-                      "Detailed description of the character, including age, ethnicity, gender, skin color, facial features, body build, hair style and color, clothing, etc",
-                    ),
+                  characterBackstory: z.string().describe("Backstory, personality, origin of the character"),
                   characterVisualSketch: z
                     .string()
                     .describe(
