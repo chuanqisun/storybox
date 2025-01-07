@@ -799,7 +799,7 @@ ${state.scenes.map((scene, i) => `Scene ${i + 1}: ${scene.narration}`).join("\n"
 
 Now work with the user to understand and solve the business problem
 - You can ask user questions to illuminate the problem and guide them to build the next scene.
-- Always use visualize_scene tool to help user understand each situation first. You must provide a narration and an illustration:
+- You must use visualize_scene tool to help user understand each situation first. You must provide a narration and an illustration:
   - The narration should contribute to the overall story.
   - The illustration should NOT include the daily objects user are showing. Instead, come up with the best scene to complements or augments the narration.
 - When user has gained enough insights, you can use convert_to_trailer tool to turn the story into a movie trailer. Encourage user to wrap up after three scenes.
@@ -854,6 +854,7 @@ You must describe the trailer as a sequence of scenes. In each scene:
 Use this reference to determine the appearance of the characters:
 ${state$.value.characters.map((ele) => `${ele.characterName}: ${ele.characterBackstory}`).join("\n")}
 
+The first scene must be epic, start with "In a world where..."
 The last scene must have an empty description with a single voice track item, creatively announcing the movie's name and tease that it will come to theater in Summer 2025.
 Generate the movie name at the end.
 
@@ -906,6 +907,9 @@ ${state$.value.scenes.map((scene, i) => `Chapter ${i + 1}: ${scene.narration}`).
           value: {
             sceneDescription: `Green background trailer cover that says THE FOLLOWING PREVIEW HAS BEEN APPROVED FOR ALL AUDIENCES, RATED G. Rumor goes that the story might feature ${state$.value.characters.map((c) => c.characterName).join(", ")}`,
             isCover: true,
+            // Trailer scene is active by default
+            isActive: true,
+            played: true,
             voiceTracks: [],
           } satisfies TrailerScene,
         }),
@@ -914,24 +918,6 @@ ${state$.value.scenes.map((scene, i) => `Chapter ${i + 1}: ${scene.narration}`).
           const parsedScene = parsed.value as any as TrailerScene;
           const isCover = parsedScene.isCover;
           const isEnding = !parsedScene.sceneDescription.length;
-
-          // Trailer scene is active by default
-          state$.next({
-            ...state$.value,
-            trailer: state$.value.trailer.map((scene, i) =>
-              i === sceneIndex
-                ? {
-                    ...scene,
-                    ...(sceneIndex === 0
-                      ? {
-                          isActive: true,
-                          played: true,
-                        }
-                      : {}),
-                  }
-                : scene,
-            ),
-          });
 
           // Generate images
           if (isCover) {
@@ -1048,11 +1034,11 @@ ${state$.value.scenes.map((scene, i) => `Chapter ${i + 1}: ${scene.narration}`).
           return { nextIndex: null, isEnded };
         }
       }),
+      tap((e) => console.log("[debug auto control]", e)),
       distinctUntilChanged((a, b) => a.nextIndex === b.nextIndex && a.isEnded === b.isEnded),
       takeWhile(({ isEnded }) => !isEnded),
       tap(({ nextIndex }) => {
         if (nextIndex === null) return;
-        console.log(`[auto-control]`, { nextIndex });
 
         state$.next({
           ...state$.value,
