@@ -716,55 +716,6 @@ After speaking, respond with one sentence summarizing the audience response.
             },
           })
           .addDraftTool({
-            name: "edit_current_scene",
-            description: "Edit the current scene",
-            parameters: z.object({
-              update: z.object({
-                narration: z.string().describe("The story narration for the scene in one short sentence"),
-                illustration: z
-                  .string()
-                  .describe(
-                    "Describe a visual scene that complements or augments the narration in one concise sentence",
-                  ),
-              }),
-            }),
-            run: async (args) => {
-              const previousScenes = state.scenes
-                .slice(0, -1)
-                .filter((scene) => scene.narration && scene.refinedCaption);
-              const refinedCaption = await this.refineSceneCaption({
-                state,
-                fewShotScenes: previousScenes,
-                narration: args.update.narration,
-                illustration: args.update.illustration,
-              });
-
-              const dataUrl = await togetherAINode.generateImageDataURL(getScenePrompt(refinedCaption), {
-                width: 768,
-                height: 432,
-              });
-
-              state$.next({
-                ...state$.value,
-                scenes: state$.value.scenes.map((scene, i) =>
-                  i === state$.value.scenes.length - 1
-                    ? {
-                        ...scene,
-                        imageUrl: dataUrl,
-                        narration: args.update.narration,
-                        caption: args.update.illustration,
-                        refinedCaption,
-                      }
-                    : scene,
-                ),
-              });
-
-              this.history.push(`(User: I updated scene ${state$.value.scenes.length}: ${args.update.narration}`);
-
-              return `Scene ${state$.value.scenes.length} updated.`;
-            },
-          })
-          .addDraftTool({
             name: "convert_to_trailer",
             description: "Turn the story into a movie trailer",
             parameters: z.object({}),
