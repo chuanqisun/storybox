@@ -1,18 +1,20 @@
 export const styles = {
   claymation: `A claymation-style image with a warm, autumnal color palette. The lighting is soft and diffused, creating a gentle, almost nostalgic mood. The textures are highly tactile, emphasizing the handmade quality of the materials.  The overall aesthetic is whimsical and slightly surreal, with a focus on creating a sense of depth and detail despite the simplistic forms. The rendering style is painterly, with visible brushstrokes or sculpting marks adding to the handcrafted feel.  Colors are muted and slightly desaturated, with a predominance of oranges, browns, and greens.  The background is slightly blurred, drawing attention to the main focus.`,
   needleFelted: `Needle felted miniature scene. Captured with tilt-shift lens. The color palette is muted and pastel, featuring various shades of orange, pink, green, and teal. The lighting is soft and diffused, creating a gentle, whimsical atmosphere. The overall style is reminiscent of children's book illustration, with a focus on texture and detail. The rendering is highly detailed, with a focus on the texture of the felt and the three-dimensionality of the miniature elements.  The scene is highly saturated, but the colors are soft and not harsh. The overall feel is cozy and inviting.`,
+  legoStyle: `A LEGO miniature-style image with a vibrant and playful color palette. The lighting is bright and crisp, highlighting the glossy surfaces of the LEGO bricks. The textures are smooth and uniform, emphasizing the iconic interlocking brick design. The overall aesthetic is fun and imaginative, with a focus on creating intricate scenes using simple geometric shapes. The rendering style is clean and precise, with sharp edges and defined lines that capture the essence of LEGO construction. Colors are bold and saturated, featuring primary colors like red, blue, and yellow, along with a variety of secondary hues. The background is minimalistic, often using a solid color or a simple gradient to keep the focus on the LEGO creation.`,
+  comicStyle: `Superhero Comic graphic novel illustration. Rich, saturated colors paired with strong, detailed outlines.`,
 };
 
 export function getScenePrompt(subject: string) {
-  return `Superhero Comic graphic novel illustration. Rich, saturated colors paired with strong, detailed outlines. ${subject}`;
+  return `${styles.legoStyle} ${subject}`;
 }
 
 export function getCharacterPrompt(subject: string) {
-  return `Mugshot view of a single character. ${subject} Claymation-style against solid contrasting color background. Use a warm, autumnal color palette. The lighting is soft and diffused, creating a gentle, almost nostalgic mood. The textures are highly tactile, emphasizing the handmade quality of the materials.  The overall aesthetic is whimsical and slightly surreal, with a focus on creating a sense of depth and detail despite the simplistic forms. The rendering style is painterly, with visible brushstrokes or sculpting marks adding to the handcrafted feel.  Colors are muted and slightly desaturated, with a predominance of oranges, browns, and greens.  The background is slightly blurred, drawing attention to the main focus.`;
+  return `Mugshot view of a single LEGO character/object with solid color background. ${subject} ${styles.legoStyle}`;
 }
 
 export function getTrailPrompt(subject: string) {
-  return `${subject} Claymation-style against solid contrasting color background. Use a warm, autumnal color palette. The lighting is soft and diffused, creating a gentle, almost nostalgic mood. The textures are highly tactile, emphasizing the handmade quality of the materials.  The overall aesthetic is whimsical and slightly surreal, with a focus on creating a sense of depth and detail despite the simplistic forms. The rendering style is painterly, with visible brushstrokes or sculpting marks adding to the handcrafted feel.  Colors are muted and slightly desaturated, with a predominance of oranges, browns, and greens.  The background is slightly blurred, drawing attention to the main focus.`;
+  return `${styles.legoStyle} ${subject}`;
 }
 
 export function getStoryboardSystemPrompt(characterDetails: string) {

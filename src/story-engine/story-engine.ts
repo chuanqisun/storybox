@@ -56,14 +56,13 @@ export interface StoryState {
   style: "realistic" | "flet" | "paper" | "manga";
   characters: StoryCharacter[];
   scenes: StoryScene[];
-  story: string;
   guests: StoryGuest[];
   vision: string;
   trailer: TrailerScene[];
 }
 
 export interface StoryCharacter {
-  dailyObject: string;
+  legoFigure: string;
   characterName: string;
   characterBackstory: string;
   characterVisualSketch: string;
@@ -128,7 +127,6 @@ const state$ = new BehaviorSubject<StoryState>({
   style: "realistic",
   characters: [],
   scenes: [],
-  story: "",
   guests: [],
   vision: "",
   trailer: [],
@@ -161,13 +159,6 @@ export class StoryEngine {
               );
             }
             case "editing": {
-              // FIXME: avoid using manual timing
-              setTimeout(() => {
-                realtime
-                  .appendUserMessage("Please use add_next_scene to create the opening scene now")
-                  .createResponse();
-              }, 1000);
-
               this.generateGuests();
 
               return merge(
@@ -183,7 +174,6 @@ export class StoryEngine {
             case "trailer": {
               caption.clear();
               realtime.muteMicrophone();
-              // realtime.muteSpeaker();
               this.generateTrailer();
 
               if (!this.danmaku) {
@@ -195,7 +185,6 @@ export class StoryEngine {
                 this.useTrailerPlay(),
                 this.useTrailerVoiceover(),
                 this.useTrailerAutoControl(),
-                this.useTrailerDanmaku(),
               );
             }
           }
@@ -287,7 +276,7 @@ export class StoryEngine {
             name: "create_character",
             description: "Create a character in the story",
             parameters: z.object({
-              dailyObject: z.string().describe("The real world object the user has shown"),
+              legoFigure: z.string().describe("The LEGO figure the user has shown"),
               characterName: z.string().describe("The name the character in the story"),
               characterBackstory: z.string().describe("Backstory, personality, origin of the character"),
               characterVisualSketch: z
@@ -298,7 +287,7 @@ export class StoryEngine {
             }),
             run: (args) => {
               const newCharacter: StoryCharacter = {
-                dailyObject: args.dailyObject,
+                legoFigure: args.legoFigure,
                 characterName: args.characterName,
                 characterBackstory: args.characterBackstory,
                 characterVisualSketch: args.characterVisualSketch,
@@ -314,7 +303,7 @@ export class StoryEngine {
                 characterDescription: args.characterVisualSketch,
               });
 
-              return `Character added: ${args.dailyObject} represents ${args.characterName} (${args.characterBackstory})`;
+              return `Character added: ${args.legoFigure} represents ${args.characterName} (${args.characterBackstory})`;
             },
           })
           .addDraftTool({
@@ -375,26 +364,15 @@ export class StoryEngine {
                 ),
               });
 
-              return `Character changed: ${existing.dailyObject} now represents ${args.update.characterName} in the story.`;
+              return `Character changed: ${existing.legoFigure} now represents ${args.update.characterName} in the story.`;
             },
           })
           .addDraftTool({
-            name: "start_story",
-            description: "Start the story",
+            name: "start_play",
+            description: "Start the scene building process",
             parameters: z.object({}),
             run: () => {
-              this.generateStory().then((story) => {
-                if (!story.length) return "Error generating stories. Tell user to change the story or try again.";
-
-                state$.next({
-                  ...state$.value,
-                  story,
-                });
-
-                this.history.push(`User: I'm creating scenes for the story: ${story}`);
-
-                this.changeStage("editing");
-              });
+              this.changeStage("editing");
 
               return "Tell the use the story will start now.";
             },
@@ -402,9 +380,10 @@ export class StoryEngine {
           .commitDraftTools()
           .updateSessionInstructions(
             `
-You are hosting a workshop to help user understand and solve business problems by storytelling. The user is designing characters for the story.
-The user will show you daily objects they would like to use to represent the characters in the story.
-Your job is to keep track of what each daily object represents in the story.
+You are hosting a LEGO Serious Play workshop to help user understand and solve business problems by building LEGO scenes.
+The user is choosing characters for the story.
+The user will show you LEGO figures they would like to use to represent the characters in the story.
+Your job is to keep track of what each LEGO figure represents in the story.
 
 ${
   state.characters.length
@@ -413,7 +392,7 @@ ${
 ${state.characters
   .map((ele) =>
     `
-Daily object: ${ele.dailyObject} 
+LEGO figure: ${ele.legoFigure} 
 Character: ${ele.characterName} (${ele.characterBackstory})
   `.trim(),
   )
@@ -426,9 +405,9 @@ The user is currently showing you: ${state.vision}
 Now interact with the user in one of the following ways:
 - Use the create_character tool to update your memory with the new information.
 - Use change_character or remove_character tool to update your memory with the latest instruction from the user
-- When user is ready, use the start_story tool to start the story. Do NOT start_story without user's explicit permission.
+- When user is ready, use the start_play tool to start the scene building play. Do NOT start_play without user's explicit permission.
 
-After each tool use, you MUST concisely tell user what you did.
+After each tool use, you MUST tell user what you did in one concises sentence.
           `.trim(),
           );
       }),
@@ -450,37 +429,6 @@ After each tool use, you MUST concisely tell user what you did.
       ),
       tap((htmlTemplate) => render(htmlTemplate, charactersGrid)),
     );
-  }
-
-  async generateStory() {
-    const aoai = llmNode.getClient("aoai");
-    const story = await aoai.chat.completions.create({
-      messages: [
-        system`You are a talented story writer for business related storytelling. Write a stunning narrative featuring these elements:
-
-${state$.value.characters.map((ele) => `${ele.characterName} (${ele.characterBackstory})`).join("\n")}
-
-You must write a high level narrative for the story and leave out all the details. The narrative should be one very concise paragraph.
-
-Respond in valid JSON, with the following type interface:
-
-{
-  story: string;
-}
-        
-        `,
-      ],
-      model: "gpt-4o",
-      response_format: {
-        type: "json_object",
-      },
-    });
-
-    const parsedStory = tryParse<{ story: string }>(story.choices[0].message.content!, {
-      story: "",
-    }).story;
-
-    return parsedStory;
   }
 
   // STAGE 2 - EDITING
@@ -519,7 +467,7 @@ Respond in valid JSON, with the following type interface:
       .chat.completions.create({
         stream: true,
         messages: [
-          system`You are organizing a collaborative storytelling events. Based on the main characters of the story and the names of the provided guest list, infer the diverse and story related background for each guest. Respond in this valid JSON format:
+          system`You are organizing a LEGO Serious Play workshop to address business problems. Based on the main characters of the story and the names of the provided domain expert list, infer the diverse and domain expertise background for each guest. Respond in this valid JSON format:
 {
   guests: {
     name: ${names.join(" | ")},
@@ -531,7 +479,7 @@ Respond in valid JSON, with the following type interface:
 Main characters:
 ${state$.value.characters.map((ele) => `${ele.characterName} (${ele.characterBackstory})`).join("\n")}
 
-Guest list:
+Domain expert list:
 ${guestAvatars.map((avatar, i) => `Guest ${i + 1}: ${avatar.getAttribute("data-name")!} (${avatar.getAttribute("data-gender")})`).join("\n")}
         `,
         ],
@@ -628,14 +576,14 @@ ${guestAvatars.map((avatar, i) => `Guest ${i + 1}: ${avatar.getAttribute("data-n
           {
             messages: [
               system`
-Simulate an audience interview during a visual storytelling workshop. The user is interviewing the following audience:
+Simulate an audience interview during a LEGO Serious Play workshop. The user is interviewing the following domain experts:
 ${state$.value.guests.map((guest) => `${guest.name} (${guest.background})`).join("\n")}
 
 Previous transcript:
 ${this.history.join("\n")}
 
 User is currently showing on screen: ${latestScene.caption}
-User is pointing the microphone at ${currentGuest?.getAttribute("data-name")}, but other guests may continue the discussion. 
+User is pointing the microphone at ${currentGuest?.getAttribute("data-name")}, but other guests may continue the discussion after ${currentGuest?.getAttribute("data-name")}. 
 
 Now use the speak_as tool to simulate the audience response, including **exaggerated** facial expression.
 After speaking, respond with one sentence summarizing the audience response.
@@ -706,7 +654,9 @@ After speaking, respond with one sentence summarizing the audience response.
 
         const summary = await response.finalContent();
         console.log(`[interview] summary: ${summary}`);
-        realtime.appendUserMessage(`I just had a round of discussion with the guests. Here is the summary: ${summary}`);
+        realtime.appendUserMessage(
+          `I just had a round of discussion with the experts. Here is the summary: ${summary}`,
+        );
       }),
     );
 
@@ -719,10 +669,10 @@ After speaking, respond with one sentence summarizing the audience response.
       tap((state) => {
         realtime
           .addDraftTool({
-            name: "add_next_scene",
-            description: "Continue the story with a new scene",
+            name: "visualize_scene",
+            description: "Visualize a scene",
             parameters: z.object({
-              narration: z.string().describe("The story narration for the scene in one short sentence"),
+              narration: z.string().describe("The narration for the scene in one short sentence"),
               illustration: z
                 .string()
                 .describe("Describe a visual scene that complements or augments the narration in one concise sentence"),
@@ -762,7 +712,7 @@ After speaking, respond with one sentence summarizing the audience response.
 
               this.history.push(`(User: I added scene ${state$.value.scenes.length}: ${args.narration}`);
 
-              return `Scene ${state$.value.scenes.length} created. You must now respond with the narration: "${args.narration}"`;
+              return `Scene ${state$.value.scenes.length} created: ${args.narration}`;
             },
           })
           .addDraftTool({
@@ -826,19 +776,20 @@ After speaking, respond with one sentence summarizing the audience response.
           .commitDraftTools() // clear previous tools
           .updateSessionInstructions(
             `
-You are a talented storyteller. You are developing a story with the user to help them understand and solve business problems. 
-You and the user have agreed on using the following daily objects to represent characters in the story:
+You are a LEGO Serious Play workshop moderator. You are guilding the user to build LEGO scenes that help them understand and solve business problems. 
+You and the user have agreed on using the following figures and objects to represent characters in the story:
 
 ${state.characters
   .map((ele) =>
     `
-Daily object: ${ele.dailyObject} 
+LEGO Figure: ${ele.legoFigure} 
 Character: ${ele.characterName} (${ele.characterBackstory})
   `.trim(),
   )
   .join("\n\n")}
 
-This is the main story you must tell with the user: ${state.story}
+Let user guide you with the objects they show. The user is currently showing you: ${state.vision}
+
 ${
   state.scenes.length
     ? `Here is the story you have developed so far:
@@ -846,15 +797,14 @@ ${state.scenes.map((scene, i) => `Scene ${i + 1}: ${scene.narration}`).join("\n"
     : "You are ready to develop the first scene with the user."
 }
 
-Now work with the user to develop the story one scene at a time.
-- Let user guide you with the objects they show and the words the say. The user is currently showing you: ${state.vision}
-- Use add_next_scene tool to continue the story. You must provide a narration and an illustration:
+Now work with the user to understand and solve the business problem
+- You can ask user questions to illuminate the problem and guide them to build the next scene.
+- Always use visualize_scene tool to help user understand each situation first. You must provide a narration and an illustration:
   - The narration should contribute to the overall story.
   - The illustration should NOT include the daily objects user are showing. Instead, come up with the best scene to complements or augments the narration.
-  - After using the tool, you MUST respond with the narration
-- Use edit_current_scene to edit the current scene.
-  - After using the tool, concisely tell user what you did.
-- When user has finished developing all the scenes, you can use convert_to_trailer tool to turn the story into a movie trailer. Encourage user to wrap up after three scenes.
+- When user has gained enough insights, you can use convert_to_trailer tool to turn the story into a movie trailer. Encourage user to wrap up after three scenes.
+
+After each tool use, prompt user to reflect on the issue so they can continue building the scene or gain an insight, in one concise sentence.
           `.trim(),
           );
       }),
@@ -893,12 +843,12 @@ Now work with the user to develop the story one scene at a time.
     const task = await aoai.chat.completions.create({
       stream: true,
       messages: [
-        system`You are a talented screenwriter. You will make an epic 60-second cinematic trailer for the user provided story.
+        system`You are a talented LEGO movie screenwriter. You will make an epic 60-second cinematic trailer for the user provided story.
 
 You must describe the trailer as a sequence of scenes. In each scene:
-- The scene description is highly detailed, including subjects, environment, camera angle, lighting, and every visual detail.
+- The scene description is highly detailed, including all the figures and objects in the foreground and background.
 - Do NOT move camera or character. It must be a still frame with stunning composition.
-- Each time you mention a character or creature in the scene, you must include the characters appearance, expression, pose, clothing. You must repeat this for each appearance.
+- Each time you mention a character or creature in the scene, you must include the characters appearance, expression, pose, clothing. You must repeat this for each scene.
 - Design voice tracks with narrator voice-over and/or short character dialogue/monologue. Make sure each character has a chance to speak
 
 Use this reference to determine the appearance of the characters:
@@ -965,54 +915,23 @@ ${state$.value.scenes.map((scene, i) => `Chapter ${i + 1}: ${scene.narration}`).
           const isCover = parsedScene.isCover;
           const isEnding = !parsedScene.sceneDescription.length;
 
-          // Generate reactions
-          aoai.chat.completions
-            .create({
-              messages: [
-                system`
-React to a movie trailer scene with "Bullet Screen" (弹幕).
-Simulate ${parsedScene.isCover || isEnding ? "20" : "5 - 10"} comments from various online viewers. Use online forum idioms. Use exaggerated punctuation and Kaomoji sparingly. No Emoji. English only. 
-
-Respond in this JSON format 
-
-{
-  reactions: {
-    username: string;
-    message: string;
-  }[]
-}
-`,
-                user`
-Scene: ${parsedScene.sceneDescription.length ? parsedScene.sceneDescription : "Fade to black, showing movie title and release time"}
-${parsedScene.isCover ? "" : "Voice-over:"}
-${(parsed.value as any).voiceTracks.map((track: any) => `${track.speaker}: ${track.utterance}`).join("\n")}`,
-              ],
-              model: "gpt-4o",
-              response_format: {
-                type: "json_object",
-              },
-            })
-            .then((response) => {
-              const { reactions } = tryParse(response.choices[0].message.content!, { reactions: [] });
-              state$.next({
-                ...state$.value,
-                trailer: state$.value.trailer.map((scene, i) =>
-                  i === sceneIndex
-                    ? {
-                        ...scene,
-                        reactions,
-                        ...(sceneIndex === 0
-                          ? {
-                              // Trailer scene is active by default
-                              isActive: true,
-                              played: true,
-                            }
-                          : {}),
-                      }
-                    : scene,
-                ),
-              });
-            });
+          // Trailer scene is active by default
+          state$.next({
+            ...state$.value,
+            trailer: state$.value.trailer.map((scene, i) =>
+              i === sceneIndex
+                ? {
+                    ...scene,
+                    ...(sceneIndex === 0
+                      ? {
+                          isActive: true,
+                          played: true,
+                        }
+                      : {}),
+                  }
+                : scene,
+            ),
+          });
 
           // Generate images
           if (isCover) {
@@ -1035,10 +954,10 @@ ${(parsed.value as any).voiceTracks.map((track: any) => `${track.speaker}: ${tra
               .then((response) => response.choices[0].message.content!)
               .catch(() => parsedScene.sceneDescription)
               .then((refinedDescription) =>
-                azureDalleNode.generateImage({
-                  prompt: getTrailPrompt(refinedDescription),
-                  style: "vivid",
-                  size: "1792x1024",
+                togetherAINode.generateImageDataURL(getTrailPrompt(refinedDescription), {
+                  width: 1792,
+                  height: 1024,
+                  model: "black-forest-labs/FLUX.1-schnell",
                 }),
               )
               .then((generatedImage) => {
@@ -1048,7 +967,7 @@ ${(parsed.value as any).voiceTracks.map((track: any) => `${track.speaker}: ${tra
                     i === sceneIndex
                       ? {
                           ...scene,
-                          imageUrl: generatedImage.data.at(0)?.url ?? `https://placeholder.co/1600X900?text=Error`,
+                          imageUrl: generatedImage ?? `https://placeholder.co/1600X900?text=Error`,
                         }
                       : scene,
                   ),
@@ -1113,7 +1032,7 @@ ${(parsed.value as any).voiceTracks.map((track: any) => `${track.speaker}: ${tra
   useTrailerAutoControl() {
     return state$.pipe(
       map((state) => {
-        const isEnded = state.trailer.at(-1)?.played;
+        const isEnded = state.trailer.at(-1)?.played && !state.trailer.at(-1)?.isCover;
 
         const currentScene = state.trailer.find((e) => e.isActive);
         const currentIndex = state.trailer.findIndex((e) => e.isActive);
@@ -1121,7 +1040,7 @@ ${(parsed.value as any).voiceTracks.map((track: any) => `${track.speaker}: ${tra
 
         const nextIndex = (currentIndex + 1) % state.trailer.length;
         const nextScene = state.trailer[currentIndex + 1];
-        const isNextSceneReady = nextScene?.imageUrl !== undefined && Array.isArray(nextScene?.reactions);
+        const isNextSceneReady = nextScene?.imageUrl !== undefined && nextScene.voiceTracks.length > 0;
 
         if (!isEnded && currentScenePlayed && isNextSceneReady) {
           return { nextIndex, isEnded };
@@ -1156,29 +1075,6 @@ ${(parsed.value as any).voiceTracks.map((track: any) => `${track.speaker}: ${tra
           scene.imageUrl ?? `https://placehold.co/400?text=${encodeURIComponent(scene.sceneDescription)}`;
 
         endingTitle.toggleAttribute("hidden", !scene.isEnding);
-      }),
-    );
-  }
-
-  useTrailerDanmaku() {
-    return state$.pipe(
-      map((state) => state.trailer.find((e) => e.isActive)),
-      filter((scene) => !!scene?.reactions?.length),
-      distinct((scene) => scene?.sceneDescription),
-      tap((scene) => {
-        // TODO avoid repeating
-        console.log("[danmaku] play", scene?.reactions);
-        scene?.reactions?.forEach(async (reaction) => {
-          await new Promise((resolve) => setTimeout(resolve, Math.random() * (scene.isCover ? 10000 : 5000)));
-          this.danmaku!.emit({
-            text: reaction.message,
-            style: {
-              fontSize: "1.5vw",
-              color: ["white", "yellow", "red", "green", "blue", "purple"][Math.floor(Math.random() * 6)],
-              textShadow: "-1px -1px #000, -1px 1px #000, 1px -1px #000, 1px 1px #000",
-            },
-          });
-        });
       }),
     );
   }
@@ -1300,10 +1196,9 @@ ${voiceOptions.map((option) => `${option.name}: ${option.description}`).join("\n
           characterName: "Supercrab",
           characterBackstory: "Grew up in the ocean, Supercrab loves to sing and has many friends",
           characterVisualSketch: "A friendly crab with a red bowtie and white boots",
-          dailyObject: "A yellow rubber duck",
+          legoFigure: "A yellow rubber duck",
         },
       ],
-      story: "Supercrab had to find his way home",
     });
   }
 
@@ -1316,16 +1211,15 @@ ${voiceOptions.map((option) => `${option.name}: ${option.description}`).join("\n
           characterName: "Ducky",
           characterBackstory: "Grew up in the ocean, Ducky loves to sing and has many friends",
           characterVisualSketch: "A friendly duck with a red bowtie and white boots",
-          dailyObject: "A yellow rubber duck",
+          legoFigure: "A yellow rubber duck",
         },
         {
           characterName: "Fox",
           characterBackstory: "A wanted mischievous fox, often making trouble",
           characterVisualSketch: "A mischievous fox with a bushy tail and a red scarf",
-          dailyObject: "A red rubber duck",
+          legoFigure: "A red rubber duck",
         },
       ],
-      story: "Ducky had to find his way home",
       scenes: [
         {
           placeholderImgUrl: "https://placehold.co/400",

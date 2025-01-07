@@ -5,6 +5,7 @@ export interface GenerateImageOptions {
   width?: number;
   height?: number;
   steps?: number;
+  model?: "black-forest-labs/FLUX.1-schnell-Free" | "black-forest-labs/FLUX.1-schnell" | "black-forest-labs/FLUX.1-dev";
 }
 
 export function defineTogetherAINode() {
@@ -23,7 +24,7 @@ export class TogetherAINode extends HTMLElement {
     const together = new Together({ apiKey: connection.togetherAIKey });
 
     const response = await together.images.create({
-      model: "black-forest-labs/FLUX.1-schnell-Free",
+      model: options?.model ?? "black-forest-labs/FLUX.1-schnell-Free",
       // model: "black-forest-labs/FLUX.1-schnell",
       prompt: prompt,
       width: options?.width ?? 400,
