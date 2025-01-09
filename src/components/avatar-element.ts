@@ -11,7 +11,7 @@ const people = [
   { name: "Emery", gender: "Male", voiceId: "en-US-DavisNeural" },
   { name: "Jack", gender: "Male", voiceId: "en-US-BrandonNeural" },
   { name: "Oliver", gender: "Male", voiceId: "en-US-JasonNeural" },
-  { name: "Sawyer", gender: "Male", voiceId: "en-US-TonyNeural " },
+  { name: "Sawyer", gender: "Male", voiceId: "en-US-TonyNeural" },
   { name: "Leah", gender: "Female", voiceId: "en-US-AvaMultilingualNeural" },
   { name: "Mackenzie", gender: "Female", voiceId: "en-US-EmmaMultilingualNeural" },
   { name: "Riley", gender: "Female", voiceId: "en-US-JennyNeural" },
